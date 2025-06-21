@@ -12,28 +12,32 @@ import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/rows")
-@CrossOrigin
+@CrossOrigin(origins = "*", maxAge = 3600)
 public class RowEntityController {
 
     private final RowEntityService service;
-    private final ExcelDownloadService downloadService; // NOUVEAU SERVICE
+    private final ExcelDownloadService downloadService;
 
     public RowEntityController(RowEntityService service, ExcelDownloadService downloadService) {
         this.service = service;
         this.downloadService = downloadService;
     }
 
-    // MÉTHODE "getAll" MODIFIÉE POUR GÉRER LA RECHERCHE
+    // This endpoint now gets rows for a specific file, with search and sorting.
+    @GetMapping("/file/{fileId}")
+    public Page<RowEntityDto> getRowsForFile(
+            @PathVariable Long fileId,
+            @RequestParam(required = false) String keyword,
+            Pageable pageable) {
+        return service.searchByFileId(fileId, keyword, pageable);
+    }
+
+    // The generic search is still useful for a global search view.
     @GetMapping
-    public Page<RowEntityDto> getAll(
+    public Page<RowEntityDto> searchAll(
             @RequestParam(required = false) String fileName,
             @RequestParam(required = false) String keyword,
             Pageable pageable) {
-        // Si aucun paramètre de recherche n'est fourni, on retourne tout
-        if ((fileName == null || fileName.isEmpty()) && (keyword == null || keyword.isEmpty())) {
-            return service.getAll(pageable);
-        }
-        // Sinon, on effectue une recherche
         return service.search(fileName, keyword, pageable);
     }
 
@@ -42,9 +46,10 @@ public class RowEntityController {
         return service.getById(id);
     }
 
-    @PostMapping
-    public RowEntityDto create(@RequestBody RowEntityDto dto) {
-        return service.create(dto);
+    // When creating a row, we must associate it with a file.
+    @PostMapping("/file/{fileId}")
+    public RowEntityDto create(@PathVariable Long fileId, @RequestBody RowEntityDto dto) {
+        return service.create(fileId, dto);
     }
 
     @PutMapping("/{id}")

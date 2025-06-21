@@ -18,27 +18,28 @@ import java.util.List;
 @Repository
 public interface RowEntityRepository extends JpaRepository<RowEntity, Long> {
 
-    List<RowEntity> findByFileName(String fileName);
-
-    List<RowEntity> findBySheetIndex(Integer sheetIndex);
-
-   @Query("SELECT r FROM RowEntity r WHERE r.fileName = :fileName AND r.sheetIndex = :sheetIndex")
-    List<RowEntity> findByFileNameAndSheetIndex(@Param("fileName") String fileName, @Param("sheetIndex") Integer sheetIndex);
-
-    @Query("SELECT r FROM RowEntity r WHERE r.createdAt BETWEEN :startDate AND :endDate")
-    List<RowEntity> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
-
-    // NOUVELLE MÉTHODE DE RECHERCHE
-    @Query("SELECT r FROM RowEntity r WHERE " +
-            "(:fileName IS NULL OR r.fileName LIKE %:fileName%) AND " +
-            "(:keyword IS NULL OR r.dataJson LIKE %:keyword%)")
-    Page<RowEntity> search(
-            @Param("fileName") String fileName,
-            @Param("keyword") String keyword,
-            Pageable pageable);
 
     @Modifying
     @Transactional
     @Query("DELETE FROM RowEntity")
     void deleteAllFast(/*Pageable pageable*/);
+
+    @Query("SELECT r FROM RowEntity r WHERE r.file.id = :fileId AND " +
+            "(:keyword IS NULL OR r.dataJson LIKE %:keyword%)")
+    Page<RowEntity> searchByFileIdAndKeyword(
+            @Param("fileId") Long fileId,
+            @Param("keyword") String keyword,
+            Pageable pageable);
+
+    // This can be used to find all rows for a given file ID, which is useful for graphing.
+    List<RowEntity> findByFileId(Long fileId);
+
+    // You might want a more flexible search for the file dashboard
+    @Query("SELECT r FROM RowEntity r WHERE " +
+            "(:fileName IS NULL OR r.file.fileName LIKE %:fileName%) AND " +
+            "(:keyword IS NULL OR r.dataJson LIKE %:keyword%)")
+    Page<RowEntity> searchWithFileAndKeyword(
+            @Param("fileName") String fileName,
+            @Param("keyword") String keyword,
+            Pageable pageable);
 }

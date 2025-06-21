@@ -1,5 +1,6 @@
 package excel_upload_service.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -7,7 +8,8 @@ import java.util.Objects;
 @Entity
 @Table(name = "row_entities", indexes = {
         @Index(name = "idx_sheet_index", columnList = "sheetIndex"),
-        @Index(name = "idx_created_at", columnList = "createdAt")
+        @Index(name = "idx_created_at", columnList = "createdAt"),
+        @Index(name = "idx_file_id", columnList = "file_id") // Index for the foreign key
 })
 public class RowEntity {
 
@@ -22,8 +24,12 @@ public class RowEntity {
     @Column(nullable = false)
     private Integer sheetIndex;
 
-   @Column(nullable = false)
-    private String fileName;
+    // Many-to-one relationship with FileEntity.
+    // Fetch.LAZY is crucial for performance.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "file_id", nullable = false)
+    @JsonBackReference // Prevents infinite recursion during serialization
+    private FileEntity file;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -33,16 +39,17 @@ public class RowEntity {
         createdAt = LocalDateTime.now();
     }
 
-    // Constructeurs
+    // --- CONSTRUCTORS, GETTERS, SETTERS, BUILDER ---
+
     public RowEntity() {}
 
-    public RowEntity(String dataJson, Integer sheetIndex, String fileName) {
+    // Updated constructor
+    public RowEntity(String dataJson, Integer sheetIndex, FileEntity file) {
         this.dataJson = dataJson;
         this.sheetIndex = sheetIndex;
-        this.fileName = fileName;
+        this.file = file;
     }
 
-    // Getters et Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -52,13 +59,12 @@ public class RowEntity {
     public Integer getSheetIndex() { return sheetIndex; }
     public void setSheetIndex(Integer sheetIndex) { this.sheetIndex = sheetIndex; }
 
-   public String getFileName() { return fileName; }
-    public void setFileName(String fileName) { this.fileName = fileName; }
+    public FileEntity getFile() { return file; }
+    public void setFile(FileEntity file) { this.file = file; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    // Builder pattern
     public static Builder builder() {
         return new Builder();
     }
@@ -66,7 +72,7 @@ public class RowEntity {
     public static class Builder {
         private String dataJson;
         private Integer sheetIndex;
-        private String fileName;
+        private FileEntity file;
 
         public Builder dataJson(String dataJson) {
             this.dataJson = dataJson;
@@ -78,13 +84,13 @@ public class RowEntity {
             return this;
         }
 
-        public Builder fileName(String fileName) {
-            this.fileName = fileName;
+        public Builder file(FileEntity file) {
+            this.file = file;
             return this;
         }
 
         public RowEntity build() {
-            return new RowEntity(dataJson, sheetIndex, fileName);
+            return new RowEntity(dataJson, sheetIndex, file);
         }
     }
 
@@ -106,7 +112,7 @@ public class RowEntity {
         return "RowEntity{" +
                 "id=" + id +
                 ", sheetIndex=" + sheetIndex +
-                ", fileName='" + fileName + '\'' +
+                ", fileId=" + (file != null ? file.getId() : "null") +
                 ", createdAt=" + createdAt +
                 '}';
     }

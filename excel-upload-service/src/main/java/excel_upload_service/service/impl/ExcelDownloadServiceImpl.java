@@ -36,7 +36,7 @@ public class ExcelDownloadServiceImpl implements ExcelDownloadService {
         // On récupère toutes les données correspondantes (sans pagination pour le téléchargement)
         // ATTENTION: Pour de très gros volumes, une approche par streaming serait plus robuste.
         Pageable pageable = PageRequest.of(0, Integer.MAX_VALUE); // Récupère tout
-        List<RowEntity> results = rowRepository.search(fileName, keyword, pageable).getContent();
+        List<RowEntity> results = rowRepository.searchWithFileAndKeyword(fileName, keyword, pageable).getContent();
 
         if (results.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
