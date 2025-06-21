@@ -31,7 +31,6 @@ Chart.register(...registerables);
                   <select class="form-control" [(ngModel)]="graphRequest.chartType" (change)="onConfigChange()">
                     <option value="pie">Graphique en secteurs</option>
                     <option value="bar">Graphique en barres</option>
-                    <option value="line">Graphique en ligne</option>
                   </select>
                 </div>
 
