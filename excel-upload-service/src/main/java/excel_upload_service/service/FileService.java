@@ -5,7 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface FileService {
-    Page<FileEntity> getFiles(Pageable pageable);
+     Page<FileEntity> getFiles(String searchKeyword, Pageable pageable);
     void deleteFile(Long id);
     FileEntity findById(Long id);
 }

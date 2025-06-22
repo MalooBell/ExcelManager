@@ -13,6 +13,23 @@ import { FileEntity, PageResponse } from '../../models/file.model';
     <div class="card">
       <div class="card-header">
         <h3 class="card-title">Fichiers Excel</h3>
+        <div class="w-full max-w-sm">
+            <div class="flex items-center border border-gray-200 rounded-lg p-1">
+                <input
+                    type="text"
+                    class="form-control"
+                    placeholder="Rechercher par nom de fichier..."
+                    [(ngModel)]="searchKeyword"
+                    (input)="onSearchInput()"
+                />
+                <button *ngIf="searchKeyword" (click)="clearSearch()" class="p-1 text-gray-400 hover:text-gray-600">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+                
+            </div>
+        </div>
       </div>
 
       <div *ngIf="loading" class="text-center py-8">
@@ -142,8 +159,12 @@ export class FileListComponent implements OnInit {
   loading = true;
   currentPage = 0;
   totalPages = 0;
-  pageSize = 25;
+  pageSize = 10; // Valeur par défaut modifiée pour correspondre au service
   pageSizes: number[] = [5, 10, 20, 25, 50, 100];
+  
+  // --- AJOUTS ---
+  searchKeyword: string = '';
+  private searchTimeout: any;
 
   constructor(
     private fileService: FileService,
@@ -161,7 +182,8 @@ export class FileListComponent implements OnInit {
 
   loadFiles() {
     this.loading = true;
-    this.fileService.getFiles(this.currentPage, this.pageSize).subscribe({
+    // MODIFICATION : On passe le mot-clé de recherche au service
+    this.fileService.getFiles(this.currentPage, this.pageSize, this.searchKeyword).subscribe({
       next: (response: PageResponse<FileEntity>) => {
         this.files = response.content;
         this.totalPages = response.totalPages;
@@ -172,6 +194,21 @@ export class FileListComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+  
+  // --- AJOUT DE NOUVELLES MÉTHODES ---
+  onSearchInput(): void {
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+        this.currentPage = 0;
+        this.loadFiles();
+    }, 500); // Déclenche la recherche 500ms après la fin de la saisie
+  }
+
+  clearSearch(): void {
+    this.searchKeyword = '';
+    this.currentPage = 0;
+    this.loadFiles();
   }
 
   viewFile(fileId: number) {

@@ -19,8 +19,10 @@ public class FileController {
     }
 
     @GetMapping
-    public Page<FileEntity> getFiles(Pageable pageable) {
-        return fileService.getFiles(pageable);
+    public Page<FileEntity> getFiles(
+            @RequestParam(required = false) String search, // AJOUT DE CE PARAMÈTRE
+            Pageable pageable) {
+        return fileService.getFiles(search, pageable); // MODIFICATION
     }
 
     @DeleteMapping("/{id}")

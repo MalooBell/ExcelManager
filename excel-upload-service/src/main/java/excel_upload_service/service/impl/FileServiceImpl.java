@@ -33,8 +33,12 @@ public class FileServiceImpl implements FileService {
     }
 
     @Override
-    public Page<FileEntity> getFiles(Pageable pageable) {
-        return fileRepository.findAll(pageable);
+    public Page<FileEntity> getFiles(String searchKeyword, Pageable pageable) { // MODIFICATION
+        if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
+            return fileRepository.findByFileNameContainingIgnoreCase(searchKeyword, pageable);
+        } else {
+            return fileRepository.findAll(pageable);
+        }
     }
     
     @Override

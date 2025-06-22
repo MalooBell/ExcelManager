@@ -68,7 +68,6 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
       <select class="form-control" [(ngModel)]="sortField" (change)="onSortChange()">
         <option value="">Trier par...</option>
         <option *ngFor="let column of columns" [value]="'data.' + column">{{ column }}</option>
-        <option value="id">ID</option>
         <option value="sheetIndex">Index feuille</option>
       </select>
       
@@ -101,7 +100,6 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
           <table class="table" *ngIf="rows.length > 0">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Feuille</th>
                 <th *ngFor="let column of columns.slice(0, maxVisibleColumns)" 
                     [title]="column">
@@ -115,7 +113,6 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
             </thead>
             <tbody>
               <tr *ngFor="let row of rows" class="hover:bg-gray-50">
-                <td class="font-medium">{{ row.id }}</td>
                 <td>{{ row.sheetIndex }}</td>
                 <td *ngFor="let column of columns.slice(0, maxVisibleColumns)" 
                     [title]="row.data[column]">

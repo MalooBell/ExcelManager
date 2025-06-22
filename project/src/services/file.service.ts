@@ -16,11 +16,16 @@ export class FileService {
     return this.api.postFormData<UploadResponse>('/excel/upload', formData);
   }
 
-  getFiles(page: number = 0, size: number = 10): Observable<PageResponse<FileEntity>> {
-    const params = new HttpParams()
+  getFiles(page: number = 0, size: number = 10, search?: string): Observable<PageResponse<FileEntity>> { // MODIFICATION : ajout de 'search'
+    let params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString())
       .set('sort', 'uploadTimestamp,desc');
+
+    if (search) { // AJOUT DE CETTE CONDITION
+      params = params.set('search', search);
+    }
+      
     return this.api.get<PageResponse<FileEntity>>('/files', params);
   }
 
