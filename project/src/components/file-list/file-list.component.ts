@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { FileService } from '../../services/file.service';
 import { FileEntity, PageResponse } from '../../models/file.model';
@@ -7,7 +8,7 @@ import { FileEntity, PageResponse } from '../../models/file.model';
 @Component({
   selector: 'app-file-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="card">
       <div class="card-header">
@@ -71,6 +72,19 @@ import { FileEntity, PageResponse } from '../../models/file.model';
         </table>
       </div>
 
+
+      <div *ngIf="totalPages > 1" class="pagination-controls">
+  <div class="page-size-selector">
+    <label for="file-page-size" class="text-sm text-gray-600 mr-2">Lignes par page:</label>
+    <select id="file-page-size" class="form-control-sm" [(ngModel)]="pageSize" (ngModelChange)="onPageSizeChange()">
+      <option *ngFor="let size of pageSizes" [value]="size">{{ size }}</option>
+    </select>
+  </div>
+
+  <div class="pagination">
+    </div>
+</div>
+
       <!-- Pagination -->
       <div *ngIf="totalPages > 1" class="pagination">
         <button class="pagination-btn" [class.disabled]="currentPage === 0" 
@@ -102,6 +116,25 @@ import { FileEntity, PageResponse } from '../../models/file.model';
     .h-4 { height: 1rem; }
     .overflow-x-auto { overflow-x: auto; }
     .hover\\:bg-gray-50:hover { background-color: var(--gray-50); }
+    /* ... styles existants ... */
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--spacing-4) var(--spacing-4);
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+}
+
+.form-control-sm {
+    padding: var(--spacing-1) var(--spacing-2);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+}
   `]
 })
 export class FileListComponent implements OnInit {
@@ -109,7 +142,8 @@ export class FileListComponent implements OnInit {
   loading = true;
   currentPage = 0;
   totalPages = 0;
-  pageSize = 10;
+  pageSize = 25;
+  pageSizes: number[] = [5, 10, 20, 25, 50, 100];
 
   constructor(
     private fileService: FileService,
@@ -117,6 +151,11 @@ export class FileListComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadFiles();
+  }
+
+  onPageSizeChange(): void {
+    this.currentPage = 0; // Revenir à la première page
     this.loadFiles();
   }
 

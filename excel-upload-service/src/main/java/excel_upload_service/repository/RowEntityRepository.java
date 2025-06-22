@@ -2,6 +2,7 @@ package excel_upload_service.repository;
 
 
 
+import excel_upload_service.dto.GraphCategoryCount;
 import excel_upload_service.model.RowEntity;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,24 @@ public interface RowEntityRepository extends JpaRepository<RowEntity, Long> {
     @Query("DELETE FROM RowEntity")
     void deleteAllFast(/*Pageable pageable*/);
 
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM RowEntity r WHERE r.file.id = :fileId")
+    void deleteByFileId(@Param("fileId") Long fileId);
+
+     @Query(value = "SELECT " +
+                   "JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) as category, " +
+                   "COUNT(*) as count " +
+                   "FROM row_entities " +
+                   "WHERE file_id = :fileId AND JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) IS NOT NULL " +
+                   "GROUP BY category " +
+                   "ORDER BY count DESC",
+           nativeQuery = true)
+    List<GraphCategoryCount> getCategoryCountsForGraph(
+            @Param("fileId") Long fileId,
+            @Param("jsonPath") String jsonPath
+    );
+
     @Query("SELECT r FROM RowEntity r WHERE r.file.id = :fileId AND " +
             "(:keyword IS NULL OR r.dataJson LIKE %:keyword%)")
     Page<RowEntity> searchByFileIdAndKeyword(
@@ -42,4 +61,7 @@ public interface RowEntityRepository extends JpaRepository<RowEntity, Long> {
             @Param("fileName") String fileName,
             @Param("keyword") String keyword,
             Pageable pageable);
+
+
+
 }

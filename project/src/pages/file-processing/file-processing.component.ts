@@ -46,37 +46,47 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
       </div>
 
       <!-- Search and Controls -->
-      <div class="card mb-6">
-        <div class="flex flex-col sm:flex-row gap-4 items-center">
-          <div class="flex-1">
-            <input
-              type="text"
-              class="form-control"
-              placeholder="Rechercher dans les données..."
-              [(ngModel)]="searchKeyword"
-              (keyup.enter)="search()"
-              (input)="onSearchInput($event)">
-          </div>
-          <div class="flex gap-2">
-            <select class="form-control" [(ngModel)]="sortField" (change)="onSortChange()">
-              <option value="">Trier par...</option>
-              <option *ngFor="let column of columns" [value]="'data.' + column">{{ column }}</option>
-              <option value="id">ID</option>
-              <option value="sheetIndex">Index feuille</option>
-            </select>
-            <select class="form-control" [(ngModel)]="sortDirection" (change)="onSortChange()">
-              <option value="asc">Croissant</option>
-              <option value="desc">Décroissant</option>
-            </select>
-            <button (click)="showAddModal()" class="btn btn-success">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-              </svg>
-              Ajouter
-            </button>
-          </div>
-        </div>
-      </div>
+     <div class="card mb-6">
+  <div class="flex flex-col sm:flex-row gap-4 items-center">
+    
+    <div class="flex-1 w-full">
+      <input
+        type="text"
+        class="form-control"
+        placeholder="Rechercher dans les données..."
+        [(ngModel)]="searchKeyword"
+        (keyup.enter)="search()"
+        (input)="onSearchInput($event)">
+    </div>
+    
+    <div class="flex gap-2 items-center flex-wrap">
+      
+      <select id="row-page-size" class="form-control" [(ngModel)]="pageSize" (ngModelChange)="onPageSizeChange()">
+        <option *ngFor="let size of pageSizes" [value]="size">{{ size }} lignes</option>
+      </select>
+      
+      <select class="form-control" [(ngModel)]="sortField" (change)="onSortChange()">
+        <option value="">Trier par...</option>
+        <option *ngFor="let column of columns" [value]="'data.' + column">{{ column }}</option>
+        <option value="id">ID</option>
+        <option value="sheetIndex">Index feuille</option>
+      </select>
+      
+      <select class="form-control" [(ngModel)]="sortDirection" (change)="onSortChange()">
+        <option value="asc">Croissant</option>
+        <option value="desc">Décroissant</option>
+      </select>
+      
+      <button (click)="showAddModal()" class="btn btn-success">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        Ajouter
+      </button>
+    </div>
+
+  </div>
+</div>
 
       <!-- Loading -->
       <div *ngIf="loading" class="text-center py-8">
@@ -86,6 +96,7 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
 
       <!-- Data Table -->
       <div *ngIf="!loading" class="card">
+        <div class="table-container">
         <div class="overflow-x-auto">
           <table class="table" *ngIf="rows.length > 0">
             <thead>
@@ -144,6 +155,7 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
           <div *ngIf="rows.length === 0" class="text-center py-8">
             <p class="text-gray-500">Aucune donnée trouvée</p>
           </div>
+</div>
         </div>
 
         <!-- Pagination -->
@@ -278,6 +290,14 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
       max-height: 150px;
       overflow-y: auto;
     }
+      .table-container {
+  /* Définit une hauteur maximale relative à la hauteur de la fenêtre du navigateur (60% de la hauteur visible). */
+  /* Vous pouvez aussi utiliser une valeur fixe comme 500px. */
+  max-height: 60vh;
+  
+  /* Active le défilement vertical (scrollbar) si le contenu de la table dépasse la max-height. */
+  overflow-y: auto;
+}
   `]
 })
 export class FileProcessingComponent implements OnInit {
@@ -290,8 +310,10 @@ export class FileProcessingComponent implements OnInit {
   currentPage = 0;
   totalPages = 0;
   totalElements = 0;
-  pageSize = 50;
+  pageSize = 50; // Valeur par défaut
   
+  // AJOUT : Options de taille de page disponibles
+  pageSizes: number[] = [25, 50, 100, 200];
   // Search and sort
   searchKeyword = '';
   sortField = '';
@@ -326,6 +348,11 @@ export class FileProcessingComponent implements OnInit {
   ngOnInit() {
     this.fileId = Number(this.route.snapshot.params['id']);
     this.loadFile();
+    this.loadRows();
+  }
+
+  onPageSizeChange(): void {
+    this.currentPage = 0; // Toujours revenir à la première page
     this.loadRows();
   }
 

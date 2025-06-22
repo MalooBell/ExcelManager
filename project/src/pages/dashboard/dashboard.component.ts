@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { FileListComponent } from '../../components/file-list/file-list.component';
@@ -29,32 +29,33 @@ import { ModificationHistory } from '../../models/row.model';
           </div>
 
           <!-- Files List -->
-          <div>
+          <div class="file-list-container">
             <app-file-list #fileList></app-file-list>
           </div>
         </div>
 
         <!-- History Section -->
         <div class="lg:col-span-1">
-          <div class="card">
-            <div class="card-header">
-              <h3 class="card-title">Historique des modifications</h3>
-            </div>
+  <div class="card h-full flex flex-col">
+    <div class="card-header">
+      <h3 class="card-title">Historique des modifications</h3>
+    </div>
 
-            <div *ngIf="loadingHistory" class="text-center py-8">
-              <div class="loading-spinner"></div>
-              <p class="text-gray-600 mt-2">Chargement...</p>
-            </div>
+    <div class="history-list-container">
+        <div *ngIf="loadingHistory" class="text-center py-8">
+            <div class="loading-spinner"></div>
+            <p class="text-gray-600 mt-2">Chargement...</p>
+        </div>
 
-            <div *ngIf="!loadingHistory && history.length === 0" class="text-center py-8">
-              <p class="text-gray-500">Aucune modification récente</p>
-            </div>
+        <div *ngIf="!loadingHistory && history.length === 0" class="text-center py-8">
+            <p class="text-gray-500">Aucune modification récente</p>
+        </div>
 
-            <div *ngIf="!loadingHistory && history.length > 0" class="space-y-3">
-              <div *ngFor="let item of history.slice(0, 10)" class="border-l-4 pl-4 py-2"
-                   [class.border-green-500]="item.operationType === 'CREATE'"
-                   [class.border-blue-500]="item.operationType === 'UPDATE'"
-                   [class.border-red-500]="item.operationType === 'DELETE'">
+        <div *ngIf="!loadingHistory && history.length > 0" class="space-y-3">
+            <div *ngFor="let item of history.slice(0, 10)" class="border-l-4 pl-4 py-2"
+                 [class.border-green-500]="item.operationType === 'CREATE'"
+                 [class.border-blue-500]="item.operationType === 'UPDATE'"
+                 [class.border-red-500]="item.operationType === 'DELETE'">
                 <div class="flex items-center justify-between">
                   <span class="badge" 
                         [class.badge-success]="item.operationType === 'CREATE'"
@@ -69,20 +70,55 @@ import { ModificationHistory } from '../../models/row.model';
                 <p class="text-sm text-gray-600 mt-1">
                   Ligne ID: {{ item.rowEntityId }}
                 </p>
-              </div>
             </div>
-
-            <div *ngIf="history.length > 10" class="text-center pt-4 border-t">
-              <button class="btn btn-outline btn-sm" (click)="loadAllHistory()">
-                Voir tout l'historique
-              </button>
-            </div>
-          </div>
         </div>
+    </div>
+
+    <div *ngIf="history.length > 10" class="text-center pt-4 border-t mt-auto">
+      <button class="btn btn-outline btn-sm" (click)="loadAllHistory()">
+        Voir tout l'historique
+      </button>
+    </div>
+  </div>
+</div>
       </div>
     </div>
   `,
   styles: [`
+  .file-list-container {
+  /* Définit une hauteur maximale. Ajustez cette valeur selon vos besoins. */
+  max-height: 500px;
+  
+  /* Active le défilement vertical (une scrollbar) si le contenu dépasse la max-height */
+  overflow-y: auto;
+  
+  /* Esthétique : ajoute une bordure pour mieux visualiser le conteneur */
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius-lg);
+}
+
+/* Style pour le conteneur de la liste d'historique */
+.history-list-container {
+    /* Fait en sorte que ce conteneur grandisse pour remplir l'espace disponible dans la carte */
+    flex-grow: 1;
+    
+    /* Active le défilement si nécessaire */
+    overflow-y: auto;
+    
+    /* Un peu de marge à droite pour ne pas que la scrollbar colle au texte */
+    padding-right: 0.5rem;
+}
+
+/* Utilitaires flexbox que nous avons ajoutés au HTML */
+.h-full {
+    height: 100%;
+}
+.flex-col {
+    flex-direction: column;
+}
+.mt-auto {
+    margin-top: auto;
+}
     .grid {
       display: grid;
     }
@@ -135,18 +171,19 @@ export class DashboardComponent implements OnInit {
 
   constructor(private rowService: RowService) {}
 
+  @ViewChild(FileListComponent) fileList!: FileListComponent;
+
   ngOnInit() {
     this.loadHistory();
   }
 
   onUploadSuccess() {
-    // Refresh the file list
-    const fileList = document.querySelector('app-file-list') as any;
-    if (fileList && fileList.loadFiles) {
-      fileList.loadFiles();
+    // Appelle directement la méthode publique du composant enfant
+    if (this.fileList) {
+      this.fileList.loadFiles();
     }
     
-    // Refresh history
+    // Rafraîchit l'historique comme avant
     this.loadHistory();
   }
 

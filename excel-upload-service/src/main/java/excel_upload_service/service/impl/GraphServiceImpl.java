@@ -1,9 +1,7 @@
 package excel_upload_service.service.impl;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import excel_upload_service.dto.GraphCategoryCount; // Importer le DTO
 import excel_upload_service.dto.GraphRequestDto;
-import excel_upload_service.model.RowEntity;
 import excel_upload_service.repository.RowEntityRepository;
 import excel_upload_service.service.GraphService;
 import org.springframework.stereotype.Service;
@@ -19,46 +17,49 @@ import java.util.stream.Collectors;
 public class GraphServiceImpl implements GraphService {
 
     private final RowEntityRepository rowRepository;
-    private final ObjectMapper objectMapper;
 
-    public GraphServiceImpl(RowEntityRepository rowRepository, ObjectMapper objectMapper) {
+    // Suppression de ObjectMapper ici car plus nécessaire pour cette logique
+    public GraphServiceImpl(RowEntityRepository rowRepository) {
         this.rowRepository = rowRepository;
-        this.objectMapper = objectMapper;
     }
 
     @Override
     public Map<String, Object> generateChartData(Long fileId, GraphRequestDto request) throws IOException {
-        List<RowEntity> rows = rowRepository.findByFileId(fileId);
-        List<Map<String, Object>> data = new ArrayList<>();
-        for (RowEntity row : rows) {
-            data.add(objectMapper.readValue(row.getDataJson(), new TypeReference<>() {}));
-        }
-
+        // La logique de chargement en mémoire est remplacée par une requête directe
         switch (request.getChartType()) {
             case "pie":
-            case "bar": // Bar chart with one value column is similar to a pie chart
-                return generateCategoryCountData(data, request);
-            // Case for 3D bar/multiple value columns can be added here
+            case "bar":
+                return generateCategoryCountDataFromDb(fileId, request);
             default:
                 throw new IllegalArgumentException("Unsupported chart type: " + request.getChartType());
         }
     }
 
-    private Map<String, Object> generateCategoryCountData(List<Map<String, Object>> data, GraphRequestDto request) {
-        // Group by the category column and count occurrences.
-        Map<Object, Long> counts = data.stream()
-                .filter(row -> row.get(request.getCategoryColumn()) != null)
-                .collect(Collectors.groupingBy(
-                        row -> row.get(request.getCategoryColumn()),
-                        Collectors.counting()
-                ));
+    // NOUVELLE MÉTHODE : utilise la requête native optimisée
+    private Map<String, Object> generateCategoryCountDataFromDb(Long fileId, GraphRequestDto request) {
+        String categoryColumn = request.getCategoryColumn();
+        if (categoryColumn == null || categoryColumn.isBlank()) {
+            throw new IllegalArgumentException("La colonne de catégorie est requise.");
+        }
+
+        // Construction du JSONPath pour la requête native
+        String jsonPath = "$." + categoryColumn;
+
+        List<GraphCategoryCount> results = rowRepository.getCategoryCountsForGraph(fileId, jsonPath);
+
+        // Préparation des données pour Chart.js
+        List<String> labels = new ArrayList<>();
+        List<Long> data = new ArrayList<>();
+
+        for (GraphCategoryCount result : results) {
+            labels.add(result.getCategory());
+            data.add(result.getCount());
+        }
 
         Map<String, Object> chartData = new LinkedHashMap<>();
-        chartData.put("labels", counts.keySet());
-        chartData.put("datasets", List.of(Map.of("data", counts.values())));
+        chartData.put("labels", labels);
+        chartData.put("datasets", List.of(Map.of("data", data, "label", "Nombre d'occurrences")));
+        
         return chartData;
     }
-
-    // You can add more complex methods here, for example, for summing a value column
-    // private Map<String, Object> generateCategorySumData(...) {}
 }
