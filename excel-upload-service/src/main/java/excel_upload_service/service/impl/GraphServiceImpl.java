@@ -1,13 +1,10 @@
 package excel_upload_service.service.impl;
 
-import excel_upload_service.dto.GraphCategoryCount; // Importer le DTO
 import excel_upload_service.dto.GraphRequestDto;
-import excel_upload_service.model.RowEntity;
+import excel_upload_service.dto.GraphResult;
 import excel_upload_service.repository.RowEntityRepository;
 import excel_upload_service.service.GraphService;
 import org.springframework.stereotype.Service;
-
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -22,122 +19,87 @@ import java.util.stream.Collectors;
 public class GraphServiceImpl implements GraphService {
 
     private final RowEntityRepository rowRepository;
-    private final ObjectMapper objectMapper; // <-- AJOUTER CETTE LIGNE
+    private final ObjectMapper objectMapper;
 
-
-    // Suppression de ObjectMapper ici car plus nécessaire pour cette logique
     public GraphServiceImpl(RowEntityRepository rowRepository, ObjectMapper objectMapper) {
         this.rowRepository = rowRepository;
-        this.objectMapper = objectMapper; // <-- AJOUTER CETTE LIGNE
+        this.objectMapper = objectMapper;
     }
 
     @Override
-public Map<String, Object> generateChartData(Long fileId, GraphRequestDto request) throws IOException {
-    // La logique de chargement en mémoire est remplacée par une requête directe
-    switch (request.getChartType()) {
-        case "pie":
-            return generateCategoryCountDataFromDb(fileId, request);
-        case "bar":
-            // Appeler la nouvelle méthode pour les graphiques en barres
-            return generateBarChartDataFromDb(fileId, request);
-        default:
-            throw new IllegalArgumentException("Unsupported chart type: " + request.getChartType());
-    }
-}
+    public Map<String, Object> generateChartData(Long fileId, GraphRequestDto request) throws IOException {
+        String chartType = request.getChartType();
+        String aggregationType = request.getAggregationType();
 
-    // NOUVELLE MÉTHODE : utilise la requête native optimisée
-    private Map<String, Object> generateCategoryCountDataFromDb(Long fileId, GraphRequestDto request) {
-        String categoryColumn = request.getCategoryColumn();
+        if ("pie".equalsIgnoreCase(chartType)) {
+            return generateCategoryCountData(fileId, request.getCategoryColumn());
+        }
+
+        if ("bar".equalsIgnoreCase(chartType)) {
+            if ("SUM".equalsIgnoreCase(aggregationType)) {
+                return generateBarChartSumData(fileId, request.getCategoryColumn(), request.getValueColumns());
+            } else {
+                return generateCategoryCountData(fileId, request.getCategoryColumn());
+            }
+        }
+
+        throw new IllegalArgumentException("Unsupported chart type: " + chartType);
+    }
+
+    private Map<String, Object> generateCategoryCountData(Long fileId, String categoryColumn) {
         if (categoryColumn == null || categoryColumn.isBlank()) {
             throw new IllegalArgumentException("La colonne de catégorie est requise.");
         }
-
-        // Construction du JSONPath pour la requête native
         String jsonPath = "$." + categoryColumn;
+        List<GraphResult> results = rowRepository.getCategoryCountsForGraph(fileId, jsonPath);
 
-        List<GraphCategoryCount> results = rowRepository.getCategoryCountsForGraph(fileId, jsonPath);
-
-        // Préparation des données pour Chart.js
-        List<String> labels = new ArrayList<>();
-        List<Long> data = new ArrayList<>();
-
-        for (GraphCategoryCount result : results) {
-            labels.add(result.getCategory());
-            data.add(result.getCount());
-        }
+        List<String> labels = results.stream().map(GraphResult::getCategory).collect(Collectors.toList());
+        List<BigDecimal> data = results.stream().map(GraphResult::getCount).collect(Collectors.toList());
 
         Map<String, Object> chartData = new LinkedHashMap<>();
         chartData.put("labels", labels);
         chartData.put("datasets", List.of(Map.of("data", data, "label", "Nombre d'occurrences")));
-        
         return chartData;
     }
 
-    // NOUVELLE MÉTHODE pour les graphiques en barres
-private Map<String, Object> generateBarChartDataFromDb(Long fileId, GraphRequestDto request) throws IOException {
-    String categoryColumn = request.getCategoryColumn();
-    List<String> valueColumns = request.getValueColumns();
+    private Map<String, Object> generateBarChartSumData(Long fileId, String categoryColumn, List<String> valueColumns) {
+        if (categoryColumn == null || categoryColumn.isBlank()) {
+            throw new IllegalArgumentException("La colonne de catégorie est requise.");
+        }
+        if (valueColumns == null || valueColumns.isEmpty()) {
+            throw new IllegalArgumentException("Au moins une colonne de valeur est requise pour une somme.");
+        }
 
-    if (categoryColumn == null || categoryColumn.isBlank()) {
-        throw new IllegalArgumentException("La colonne de catégorie est requise.");
-    }
-    if (valueColumns == null || valueColumns.isEmpty()) {
-        throw new IllegalArgumentException("Au moins une colonne de valeur est requise pour un graphique en barres.");
-    }
+        String categoryJsonPath = "$." + categoryColumn;
 
-    // 1. Récupérer toutes les lignes pour le fichier
-    List<RowEntity> rows = rowRepository.findByFileId(fileId);
-    TypeReference<Map<String, Object>> typeRef = new TypeReference<>() {};
+        List<GraphResult> initialResults = rowRepository.getCategorySumsForGraph(fileId, categoryJsonPath, "$." + valueColumns.get(0));
+        List<String> labels = initialResults.stream()
+                                            .map(GraphResult::getCategory)
+                                            .sorted()
+                                            .collect(Collectors.toList());
 
-    // 2. Agréger les données en mémoire
-    // Structure : Map<Category, Map<ValueColumnName, Sum>>
-    Map<String, Map<String, BigDecimal>> aggregatedData = new LinkedHashMap<>();
-
-    for (RowEntity row : rows) {
-        Map<String, Object> data = objectMapper.readValue(row.getDataJson(), typeRef);
-        Object categoryValue = data.get(categoryColumn);
-        // Utiliser "N/A" pour les catégories nulles ou vides
-        String category = (categoryValue != null && !categoryValue.toString().isBlank()) ? categoryValue.toString() : "N/A";
-
-        aggregatedData.putIfAbsent(category, new LinkedHashMap<>());
+        List<Map<String, Object>> datasets = new ArrayList<>();
 
         for (String valueCol : valueColumns) {
-            Object rawValue = data.get(valueCol);
-            if (rawValue != null) {
-                try {
-                    // Tenter de convertir la valeur en nombre, en gérant les virgules et les espaces
-                    BigDecimal numericValue = new BigDecimal(rawValue.toString().trim().replace(',', '.'));
-                    // Ajouter à la somme existante pour cette catégorie et cette colonne
-                    aggregatedData.get(category).merge(valueCol, numericValue, BigDecimal::add);
-                } catch (NumberFormatException e) {
-                    // Ignorer en silence les valeurs qui ne sont pas des nombres
-                }
-            }
-        }
-    }
-
-    // 3. Préparer les données pour la réponse à Chart.js
-    List<String> labels = new ArrayList<>(aggregatedData.keySet());
-    List<Map<String, Object>> datasets = new ArrayList<>();
-
-    for (String valueCol : valueColumns) {
-        List<BigDecimal> dataPoints = new ArrayList<>();
-        for (String label : labels) {
-            // Obtenir la somme pour cette catégorie/colonne, ou 0 si elle n'existe pas
-            BigDecimal value = aggregatedData.get(label).getOrDefault(valueCol, BigDecimal.ZERO);
-            dataPoints.add(value);
+            String valueJsonPath = "$." + valueCol;
+            List<GraphResult> results = rowRepository.getCategorySumsForGraph(fileId, categoryJsonPath, valueJsonPath);
+            
+            Map<String, BigDecimal> resultMap = results.stream()
+                .collect(Collectors.toMap(GraphResult::getCategory, GraphResult::getCount, (v1, v2) -> v1));
+            
+            List<BigDecimal> dataPoints = labels.stream()
+                                          .map(label -> resultMap.getOrDefault(label, BigDecimal.ZERO))
+                                          .collect(Collectors.toList());
+            
+            Map<String, Object> dataset = new LinkedHashMap<>();
+            dataset.put("label", valueCol);
+            dataset.put("data", dataPoints);
+            datasets.add(dataset);
         }
 
-        Map<String, Object> dataset = new LinkedHashMap<>();
-        dataset.put("label", valueCol);
-        dataset.put("data", dataPoints);
-        datasets.add(dataset);
+        Map<String, Object> chartData = new LinkedHashMap<>();
+        chartData.put("labels", labels);
+        chartData.put("datasets", datasets);
+        return chartData;
     }
-
-    Map<String, Object> chartData = new LinkedHashMap<>();
-    chartData.put("labels", labels);
-    chartData.put("datasets", datasets);
-
-    return chartData;
-}
 }

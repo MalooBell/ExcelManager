@@ -3,6 +3,7 @@ package excel_upload_service.repository;
 
 
 import excel_upload_service.dto.GraphCategoryCount;
+import excel_upload_service.dto.GraphResult;
 import excel_upload_service.model.RowEntity;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
@@ -30,18 +31,7 @@ public interface RowEntityRepository extends JpaRepository<RowEntity, Long> {
     @Query("DELETE FROM RowEntity r WHERE r.file.id = :fileId")
     void deleteByFileId(@Param("fileId") Long fileId);
 
-     @Query(value = "SELECT " +
-                   "JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) as category, " +
-                   "COUNT(*) as count " +
-                   "FROM row_entities " +
-                   "WHERE file_id = :fileId AND JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) IS NOT NULL " +
-                   "GROUP BY category " +
-                   "ORDER BY count DESC",
-           nativeQuery = true)
-    List<GraphCategoryCount> getCategoryCountsForGraph(
-            @Param("fileId") Long fileId,
-            @Param("jsonPath") String jsonPath
-    );
+     
 
     @Query("SELECT r FROM RowEntity r WHERE r.file.id = :fileId AND " +
             "(:keyword IS NULL OR r.dataJson LIKE %:keyword%)")
@@ -63,5 +53,33 @@ public interface RowEntityRepository extends JpaRepository<RowEntity, Long> {
             Pageable pageable);
 
 
+         
+    @Query(value = "SELECT " +
+                   "JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) as category, " +
+                   "COUNT(*) as count " +
+                   "FROM row_entities " +
+                   "WHERE file_id = :fileId AND JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) IS NOT NULL " +
+                   "GROUP BY category " +
+                   "ORDER BY count DESC",
+           nativeQuery = true)
+    // <-- MODIFIER LE TYPE DE RETOUR ICI
+    List<GraphResult> getCategoryCountsForGraph(
+            @Param("fileId") Long fileId,
+            @Param("jsonPath") String jsonPath
+    );
 
+    @Query(value = "SELECT " +
+                   "JSON_UNQUOTE(JSON_EXTRACT(data_json, :categoryJsonPath)) as category, " +
+                   "SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(data_json, :valueJsonPath)) AS DECIMAL(18, 4))) as count " +
+                   "FROM row_entities " +
+                   "WHERE file_id = :fileId AND JSON_UNQUOTE(JSON_EXTRACT(data_json, :categoryJsonPath)) IS NOT NULL " +
+                   "GROUP BY category " +
+                   "ORDER BY category ASC",
+           nativeQuery = true)
+    // <-- MODIFIER LE TYPE DE RETOUR ICI
+    List<GraphResult> getCategorySumsForGraph(
+            @Param("fileId") Long fileId,
+            @Param("categoryJsonPath") String categoryJsonPath,
+            @Param("valueJsonPath") String valueJsonPath
+    );
 }

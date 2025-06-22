@@ -13,95 +13,103 @@ Chart.register(...registerables);
   imports: [CommonModule, FormsModule],
   template: `
     <div class="modal-overlay" (click)="onOverlayClick($event)">
-      <div class="modal" style="width: 95vw; max-width: 1200px; max-height: 90vh;">
-        <div class="modal-header">
-          <h3 class="modal-title">Générer un graphique</h3>
-          <button class="modal-close" (click)="close()">×</button>
-        </div>
+  <div class="modal" style="width: 95vw; max-width: 1200px; max-height: 90vh;">
+    <div class="modal-header">
+      <h3 class="modal-title">Générer un graphique</h3>
+      <button class="modal-close" (click)="close()">×</button>
+    </div>
 
-        <div class="modal-body" style="max-height: calc(90vh - 200px); overflow-y: auto;">
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Configuration -->
-            <div class="lg:col-span-1">
-              <div class="card">
-                <h4 class="text-lg font-semibold mb-4">Configuration du graphique</h4>
-                
-                <div class="form-group">
-                  <label class="form-label">Type de graphique</label>
-                  <select class="form-control" [(ngModel)]="graphRequest.chartType" (change)="onConfigChange()">
-                    <option value="pie">Graphique en secteurs</option>
-                    <option value="bar">Graphique en barres</option>
-                  </select>
+    <div class="modal-body" style="max-height: calc(90vh - 200px); overflow-y: auto;">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-1">
+          <div class="card">
+            <h4 class="text-lg font-semibold mb-4">Configuration du graphique</h4>
+            
+            <div class="form-group">
+              <label class="form-label">Type de graphique</label>
+              <select class="form-control" [(ngModel)]="graphRequest.chartType" (change)="onConfigChange()">
+                <option value="pie">Graphique en secteurs</option>
+                <option value="bar">Graphique en barres</option>
+              </select>
+            </div>
+
+            <div class="form-group" *ngIf="graphRequest.chartType === 'bar'">
+                <label class="form-label">Opération d'agrégation</label>
+                <select class="form-control" [(ngModel)]="graphRequest.aggregationType">
+                    <option value="COUNT">Compter les occurrences</option>
+                    <option value="SUM">Sommer les valeurs (numériques)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Colonne catégorie (Axe X)</label>
+              <select class="form-control" [(ngModel)]="graphRequest.categoryColumn" (change)="onConfigChange()">
+                <option value="">Sélectionnez une colonne</option>
+                <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
+              </select>
+            </div>
+
+            <div class="form-group" *ngIf="graphRequest.chartType === 'bar' && graphRequest.aggregationType === 'SUM'">
+              <label class="form-label">Colonnes valeurs (Axe Y)</label>
+              <div class="space-y-2">
+                <div *ngFor="let column of columns" class="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    [id]="'col-' + column"
+                    [checked]="graphRequest.valueColumns.includes(column)"
+                    (change)="onValueColumnChange(column, $event)"
+                    class="mr-2">
+                  <label [for]="'col-' + column" class="text-sm">{{ column }}</label>
                 </div>
-
-                <div class="form-group">
-                  <label class="form-label">Colonne catégorie (X)</label>
-                  <select class="form-control" [(ngModel)]="graphRequest.categoryColumn" (change)="onConfigChange()">
-                    <option value="">Sélectionnez une colonne</option>
-                    <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
-                  </select>
-                </div>
-
-                <div class="form-group" *ngIf="graphRequest.chartType !== 'pie'">
-                  <label class="form-label">Colonnes valeurs (Y)</label>
-                  <div class="space-y-2">
-                    <div *ngFor="let column of columns" class="flex items-center">
-                      <input 
-                        type="checkbox" 
-                        [id]="'col-' + column"
-                        [checked]="graphRequest.valueColumns.includes(column)"
-                        (change)="onValueColumnChange(column, $event)"
-                        class="mr-2">
-                      <label [for]="'col-' + column" class="text-sm">{{ column }}</label>
-                    </div>
-                  </div>
-                </div>
-
-                <button 
-                  class="btn btn-primary w-full"
-                  (click)="generateGraph()"
-                  [disabled]="!canGenerateGraph() || loading">
-                  <div *ngIf="loading" class="loading-spinner"></div>
-                  Générer le graphique
-                </button>
               </div>
             </div>
 
-            <!-- Graphique -->
-            <div class="lg:col-span-2">
-              <div class="card">
-                <div class="flex justify-between items-center mb-4">
-                  <h4 class="text-lg font-semibold">Aperçu du graphique</h4>
-                  <button 
-                    *ngIf="chartData" 
-                    class="btn btn-success btn-sm"
-                    (click)="downloadChart()">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    Télécharger
-                  </button>
-                </div>
-                
-                <div class="chart-container" style="position: relative; height: 400px;">
-                  <canvas #chartCanvas></canvas>
-                  <div *ngIf="!chartData" class="absolute inset-0 flex items-center justify-center">
-                    <p class="text-gray-500">Configurez les paramètres et cliquez sur "Générer le graphique"</p>
-                  </div>
-                </div>
+            <button 
+              class="btn btn-primary w-full"
+              (click)="generateGraph()"
+              [disabled]="!canGenerateGraph() || loading">
+              <div *ngIf="loading" class="loading-spinner"></div>
+              Générer le graphique
+            </button>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2">
+          <div class="card">
+            <div class="flex justify-between items-center mb-4">
+              <h4 class="text-lg font-semibold">Aperçu du graphique</h4>
+              <button 
+                *ngIf="chartData" 
+                class="btn btn-success btn-sm"
+                (click)="downloadChart()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                Télécharger
+              </button>
+            </div>
+            
+            <div class="chart-container" style="position: relative; height: 400px;">
+              <canvas #chartCanvas></canvas>
+              <div *ngIf="!chartData" class="absolute inset-0 flex items-center justify-center">
+                <p class="text-gray-500">Configurez les paramètres et cliquez sur "Générer le graphique"</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="close()">
-            Fermer
-          </button>
-        </div>
       </div>
     </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="close()">
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>
   `,
   styles: [`
     .grid {
@@ -159,7 +167,8 @@ export class GraphModalComponent implements OnInit {
   graphRequest: GraphRequest = {
     chartType: 'pie',
     categoryColumn: '',
-    valueColumns: []
+    valueColumns: [],
+    aggregationType: 'COUNT' // <-- Valeur par défaut
   };
 
   chartData: GraphData | null = null;
@@ -190,6 +199,12 @@ export class GraphModalComponent implements OnInit {
   onConfigChange() {
     if (this.graphRequest.chartType === 'pie') {
       this.graphRequest.valueColumns = [];
+      this.graphRequest.aggregationType = 'COUNT';
+    } else {
+      // Pour les barres, si on vient de changer, on met COUNT par défaut
+      if (!this.graphRequest.aggregationType) {
+        this.graphRequest.aggregationType = 'COUNT';
+      }
     }
   }
 
@@ -207,11 +222,11 @@ export class GraphModalComponent implements OnInit {
     if (!this.graphRequest.categoryColumn) {
       return false;
     }
-    
-    if (this.graphRequest.chartType === 'pie') {
+    // Pour un COUNT, on n'a pas besoin de valueColumns
+    if (this.graphRequest.aggregationType === 'COUNT') {
       return true;
     }
-    
+    // Pour un SUM, on a besoin d'au moins une valueColumn
     return this.graphRequest.valueColumns.length > 0;
   }
 
