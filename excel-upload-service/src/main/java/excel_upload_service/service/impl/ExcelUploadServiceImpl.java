@@ -2,9 +2,7 @@ package excel_upload_service.service.impl;
 
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.context.AnalysisContext;
-import com.alibaba.excel.metadata.data.ReadCellData;
 import com.alibaba.excel.read.listener.ReadListener;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import excel_upload_service.dto.UploadResponse;
 import excel_upload_service.model.FileEntity;
@@ -29,13 +27,15 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
 
     private static final Logger logger = LoggerFactory.getLogger(ExcelUploadServiceImpl.class);
     private final RowEntityRepository rowRepository;
-    private final FileEntityRepository fileRepository; // New repository injected
+    private final FileEntityRepository fileRepository;
     private final ObjectMapper objectMapper;
 
-    @Value("${excel.upload.max-file-size:10485760}") // 10MB
+    @Value("${excel.upload.max-file-size:10485760}")
     private long maxFileSize;
-    @Value("${excel.upload.max-rows:1000700}") // 1,000,700 rows
+    @Value("${excel.upload.max-rows:1000700}")
     private int maxRows;
+    private static final int HEADER_DETECTION_MIN_COLUMNS = 3;
+
 
     public ExcelUploadServiceImpl(RowEntityRepository rowRepository, FileEntityRepository fileRepository, ObjectMapper objectMapper) {
         this.rowRepository = rowRepository;
@@ -51,42 +51,49 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
             return new UploadResponse(false, "File is too large. Max allowed size: " + (maxFileSize / 1024 / 1024) + "MB", null, 0);
         }
 
-        // --- Create and save the FileEntity first ---
         FileEntity fileEntity = new FileEntity();
         fileEntity.setFileName(file.getOriginalFilename());
-        fileEntity = fileRepository.save(fileEntity); // Save to get the ID
+        fileEntity = fileRepository.save(fileEntity);
 
         List<String> errors = new ArrayList<>();
         AtomicInteger totalProcessedRows = new AtomicInteger(0);
 
         try (InputStream inputStream = file.getInputStream()) {
-            List<com.alibaba.excel.read.metadata.ReadSheet> sheets = EasyExcel.read(inputStream).build().excelExecutor().sheetList();
-            if (sheets.isEmpty()) {
-                return new UploadResponse(false, "The Excel file contains no sheets.", null, 0);
+            // ÉTAPE 1 - ANALYSE DES EN-TÊTES
+            HeaderAnalysisListener headerAnalysisListener = new HeaderAnalysisListener(HEADER_DETECTION_MIN_COLUMNS);
+            
+            try (InputStream analysisStream = file.getInputStream()) {
+                 EasyExcel.read(analysisStream, headerAnalysisListener).sheet(0).doRead();
+            } catch (Exception e) {
+                 if (e.getMessage() == null || !e.getMessage().contains("interrupt")) {
+                     throw e;
+                 }
             }
 
-            // --- Extract headers from the first sheet to store in FileEntity ---
-            List<String> headers = extractHeaders(file, 0);
+            List<String> headers = headerAnalysisListener.getHeaders();
+            int headerRowNumber = headerAnalysisListener.getHeaderRowNumber(); // 1-based
+
+            if (headerRowNumber == -1) {
+                fileRepository.delete(fileEntity);
+                return new UploadResponse(false, "Impossible de détecter une ligne d'en-tête valide dans le fichier.", null, 0);
+            }
+            
+            logger.info("Header detected on row {} with {} columns.", headerRowNumber, headers.size());
             fileEntity.setHeadersJson(objectMapper.writeValueAsString(headers));
-
-            for (int sheetIndex = 0; sheetIndex < sheets.size(); sheetIndex++) {
-                try (InputStream sheetInputStream = file.getInputStream()) {
-                    ExcelDataListener dataListener = new ExcelDataListener(fileEntity, sheetIndex, totalProcessedRows, errors, headers, maxRows);
-                    EasyExcel.read(sheetInputStream, dataListener)
-                            .sheet(sheetIndex)
-                            .headRowNumber(1) // Assuming headers are on the first row
-                            .doRead();
-                } catch (Exception e) {
-                    logger.error("Unexpected error processing sheet {}: {}", sheetIndex, e.getMessage(), e);
-                    errors.add("Sheet " + (sheetIndex + 1) + ": " + e.getMessage());
-                }
-            }
-
-            // Finalize FileEntity
+            
+            // ÉTAPE 2 - LECTURE DES DONNÉES
+            // CORRECTION : Nous passons le numéro de la ligne d'en-tête au listener de données
+            ExcelDataListener dataListener = new ExcelDataListener(fileEntity, 0, totalProcessedRows, errors, headers, maxRows, headerRowNumber);
+            
+            // CORRECTION : On ne spécifie PLUS .headRowNumber() ici. On lit tout et on laisse le listener ignorer les premières lignes.
+            EasyExcel.read(inputStream, dataListener)
+                    .sheet(0)
+                    .doRead();
+            
             fileEntity.setTotalRows(totalProcessedRows.get());
             fileRepository.save(fileEntity);
 
-            String message = String.format("Processing finished. %d rows processed across %d sheets.", totalProcessedRows.get(), sheets.size());
+            String message = String.format("Processing finished. %d rows processed.", totalProcessedRows.get());
             if (!errors.isEmpty()) {
                 message += " with " + errors.size() + " error(s).";
             }
@@ -94,53 +101,47 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
 
         } catch (Exception e) {
             logger.error("General error during file processing: {}", e.getMessage(), e);
-            // If something fails, delete the created FileEntity to avoid orphans
             fileRepository.deleteById(fileEntity.getId());
             return new UploadResponse(false, "Error during processing: " + e.getMessage(), null, 0);
         }
     }
 
-    private List<String> extractHeaders(MultipartFile file, int sheetIndex) throws IOException {
-        try (InputStream inputStream = file.getInputStream()) {
-            HeaderListener headerListener = new HeaderListener();
-            try {
-                EasyExcel.read(inputStream, headerListener)
-                        .sheet(sheetIndex)
-                        .headRowNumber(1)
-                        .doRead();
-            } catch (RuntimeException e) {
-                if (e.getMessage() != null && e.getMessage().contains("interrupt")) {
-                    logger.debug("Header read interrupted as expected for sheet {}.", sheetIndex);
-                } else {
-                    throw e;
+    private static class HeaderAnalysisListener implements ReadListener<Map<Integer, String>> {
+        private List<String> headers = new ArrayList<>();
+        private int headerRowNumber = -1;
+        private final int minColumns;
+
+        public HeaderAnalysisListener(int minColumns) {
+            this.minColumns = minColumns;
+        }
+
+        @Override
+        public void invoke(Map<Integer, String> data, AnalysisContext context) {
+            long nonEmptyCells = data.values().stream().filter(cell -> cell != null && !cell.trim().isEmpty()).count();
+
+            if (nonEmptyCells >= minColumns) {
+                this.headerRowNumber = context.readRowHolder().getRowIndex() + 1;
+
+                int maxColumnIndex = data.keySet().stream().mapToInt(Integer::intValue).max().orElse(-1);
+                for (int i = 0; i <= maxColumnIndex; i++) {
+                    String cellValue = data.get(i);
+                    headers.add(cellValue == null ? "" : cellValue.trim());
                 }
+
+                while (!headers.isEmpty() && headers.get(headers.size() - 1).isEmpty()) {
+                    headers.remove(headers.size() - 1);
+                }
+                
+                context.interrupt();
             }
-            return headerListener.getHeaders();
         }
-    }
 
-    // --- INNER LISTENER CLASSES ---
-
-    private static class HeaderListener implements ReadListener<Map<Integer, String>> {
-        private final List<String> headers = new ArrayList<>();
-        public List<String> getHeaders() { return headers; }
-
-        @Override
-        public void invokeHead(Map<Integer, ReadCellData<?>> headMap, AnalysisContext context) {
-            if (headMap != null && !headMap.isEmpty()) {
-                headMap.values().forEach(cell -> {
-                    if (cell != null && cell.getStringValue() != null) {
-                        headers.add(cell.getStringValue());
-                    }
-                });
-            }
-            context.interrupt(); // Stop reading after headers
-        }
-        @Override
-        public void invoke(Map<Integer, String> data, AnalysisContext context) {}
         @Override
         public void doAfterAllAnalysed(AnalysisContext context) {}
+        public List<String> getHeaders() { return headers; }
+        public int getHeaderRowNumber() { return headerRowNumber; }
     }
+
 
     private class ExcelDataListener implements ReadListener<Map<Integer, String>> {
         private final FileEntity fileEntity;
@@ -151,63 +152,79 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
         private final int maxRows;
         private final List<RowEntity> batchData = new ArrayList<>();
         private static final int BATCH_SIZE = 1000;
+        
+        // CORRECTION : Ajout d'un champ pour savoir où commencer à lire
+        private final int headerRowIndex; // 0-based index
 
-        public ExcelDataListener(FileEntity fileEntity, int sheetIndex, AtomicInteger totalProcessedRows, List<String> errors, List<String> headers, int maxRows) {
+        public ExcelDataListener(FileEntity fileEntity, int sheetIndex, AtomicInteger totalProcessedRows, List<String> errors, List<String> headers, int maxRows, int headerRowNumber) {
             this.fileEntity = fileEntity;
             this.sheetIndex = sheetIndex;
             this.totalProcessedRows = totalProcessedRows;
             this.errors = errors;
-            this.headers = headers.isEmpty() ? new ArrayList<>() : headers;
+            this.headers = headers;
             this.maxRows = maxRows;
+            // CORRECTION : On stocke l'index (0-based) de la ligne d'en-tête
+            this.headerRowIndex = headerRowNumber - 1;
         }
 
-        @Override
-        public void invoke(Map<Integer, String> data, AnalysisContext context) {
-            try {
-                if (totalProcessedRows.get() >= maxRows) {
-                    throw new RuntimeException("Row limit exceeded: " + maxRows);
-                }
-
-                Map<String, Object> rowData = new LinkedHashMap<>(); // Use LinkedHashMap to preserve order
-                for (int i = 0; i < headers.size(); i++) {
-                    String columnName = headers.get(i);
-                    String value = data.get(i);
-                    if (value != null && !value.trim().isEmpty()) {
-                        rowData.put(columnName, value.trim());
-                    }
-                }
-
-                if (rowData.values().stream().allMatch(Objects::isNull)) {
-                    return; // Skip empty rows
-                }
-
-                String jsonData = objectMapper.writeValueAsString(rowData);
-                RowEntity entity = RowEntity.builder()
-                        .dataJson(jsonData)
-                        .sheetIndex(sheetIndex)
-                        .file(fileEntity) // Associate with the file
-                        .build();
-
-                batchData.add(entity);
-                totalProcessedRows.incrementAndGet();
-
-                if (batchData.size() >= BATCH_SIZE) {
-                    saveBatch();
-                }
-
-            } catch (Exception e) {
-                int rowIndex = context.readRowHolder().getRowIndex();
-                logger.error("Error on row {}: {}", rowIndex, e.getMessage());
-                errors.add("Row " + (rowIndex + 1) + ": " + e.getMessage());
-            }
+        // Dans la classe interne ExcelDataListener
+@Override
+public void invoke(Map<Integer, String> data, AnalysisContext context) {
+    // On ignore manuellement toutes les lignes situées avant ou sur la ligne d'en-tête
+    if (context.readRowHolder().getRowIndex() <= this.headerRowIndex) {
+        return;
+    }
+    
+    if (totalProcessedRows.get() >= maxRows) {
+        if(errors.stream().noneMatch(e -> e.startsWith("Row limit exceeded"))) {
+            errors.add("Row limit exceeded. Max rows: " + maxRows);
         }
+        context.interrupt();
+        return;
+    }
+
+    try {
+        // On ignore les lignes complètement vides
+        if (data.values().stream().allMatch(v -> v == null || v.trim().isEmpty())) {
+            return;
+        }
+        
+        Map<String, Object> rowData = new LinkedHashMap<>();
+        for (int i = 0; i < headers.size(); i++) {
+            String columnName = headers.get(i);
+            String cellValue = data.get(i); // Récupère la valeur, qui peut être null
+
+            // CORRECTION DÉFINITIVE : On vérifie si la valeur est null AVANT d'appeler .trim()
+            // Si la cellule est null, on insère null. Sinon, on insère la valeur nettoyée.
+            rowData.put(columnName, cellValue == null ? null : cellValue.trim());
+        }
+
+        String jsonData = objectMapper.writeValueAsString(rowData);
+        RowEntity entity = RowEntity.builder()
+                .dataJson(jsonData)
+                .sheetIndex(sheetIndex)
+                .file(fileEntity)
+                .build();
+
+        batchData.add(entity);
+        totalProcessedRows.incrementAndGet();
+
+        if (batchData.size() >= BATCH_SIZE) {
+            saveBatch();
+        }
+    } catch (Exception e) {
+        int rowIndex = context.readRowHolder().getRowIndex() + 1;
+        logger.error("Error on row {}: {}", rowIndex, e.getMessage(), e);
+        errors.add("Row " + rowIndex + ": " + e.getMessage());
+    }
+}
 
         @Override
         public void doAfterAllAnalysed(AnalysisContext context) {
             if (!batchData.isEmpty()) {
                 saveBatch();
             }
-            logger.info("Sheet {} processed: {} rows.", sheetIndex, context.readRowHolder().getRowIndex());
+            logger.info("Sheet {} processed. Total rows saved: {}", sheetIndex, totalProcessedRows.get());
         }
 
         private void saveBatch() {
