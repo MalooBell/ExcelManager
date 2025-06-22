@@ -7,6 +7,8 @@ public class GraphRequestDto {
     private String categoryColumn; // X-axis for bar, labels for pie
     private List<String> valueColumns; // Y-axis for bar
     private String aggregationType; // "COUNT", "SUM"
+    private String groupingColumn; // <-- AJOUTER
+     private Integer limit; 
     // Add other options like aggregation type (count, sum, avg) if needed
 
     // Getters and Setters
@@ -18,4 +20,8 @@ public class GraphRequestDto {
     public void setValueColumns(List<String> valueColumns) { this.valueColumns = valueColumns; }
     public String getAggregationType() { return aggregationType; }
     public void setAggregationType(String aggregationType) { this.aggregationType = aggregationType; }
+    public String getGroupingColumn() { return groupingColumn; }
+    public void setGroupingColumn(String groupingColumn) { this.groupingColumn = groupingColumn; }
+    public Integer getLimit() { return limit; }
+    public void setLimit(Integer limit) { this.limit = limit; }
 }

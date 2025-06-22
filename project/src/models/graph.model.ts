@@ -3,6 +3,8 @@ export interface GraphRequest {
   categoryColumn: string;
   valueColumns: string[];
   aggregationType?: 'COUNT' | 'SUM'; // <-- AJOUTER CETTE LIGNE
+  groupingColumn?: string; // <-- AJOUTER CETTE LIGNE
+  limit?: number | null; // <-- AJOUTER
 }
 
 export interface GraphData {

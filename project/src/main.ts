@@ -23,8 +23,8 @@ import { routes } from './app/app.routes';
                 </svg>
               </div>
               <div>
-                <h1 class="text-xl font-bold text-gray-900">Excel Processor</h1>
-                <p class="text-sm text-gray-500">Powered by ENEO</p>
+                <h1 class="text-xl font-bold text-gray-900">Excel Manager</h1>
+                <p class="text-sm text-gray-500">Powered by MBLM</p>
               </div>
             </div>
             <div class="hidden sm:flex items-center space-x-4">
@@ -45,7 +45,7 @@ import { routes } from './app/app.routes';
         <div class="container py-8">
           <div class="flex flex-col md:flex-row justify-between items-center">
             <div class="text-gray-600 text-sm mb-4 md:mb-0">
-              © 2024 ENEO Cameroun. Tous droits réservés.
+              © 2024 MALOO BELL Cameroun. Tous droits réservés.
             </div>
             <div class="flex items-center space-x-6">
               <div class="flex items-center text-sm text-gray-600">

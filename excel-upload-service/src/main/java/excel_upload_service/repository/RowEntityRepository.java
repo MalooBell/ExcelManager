@@ -13,6 +13,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import excel_upload_service.dto.GroupedGraphResult; // <-- AJOUTER L'IMPORT POUR GroupedGraphResult
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -53,33 +54,55 @@ public interface RowEntityRepository extends JpaRepository<RowEntity, Long> {
             Pageable pageable);
 
 
-         
+
     @Query(value = "SELECT " +
                    "JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) as category, " +
                    "COUNT(*) as count " +
                    "FROM row_entities " +
                    "WHERE file_id = :fileId AND JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) IS NOT NULL " +
                    "GROUP BY category " +
-                   "ORDER BY count DESC",
+                   "ORDER BY count DESC LIMIT :limit", // <-- AJOUTER LIMIT
            nativeQuery = true)
-    // <-- MODIFIER LE TYPE DE RETOUR ICI
     List<GraphResult> getCategoryCountsForGraph(
             @Param("fileId") Long fileId,
-            @Param("jsonPath") String jsonPath
+            @Param("jsonPath") String jsonPath,
+            @Param("limit") Integer limit
+    );
+
+     @Query(value = "WITH TopPrimaryCategories AS (" +
+                   "  SELECT JSON_UNQUOTE(JSON_EXTRACT(data_json, :primaryCategoryPath)) as p_category, COUNT(*) as total_count " +
+                   "  FROM row_entities WHERE file_id = :fileId GROUP BY p_category ORDER BY total_count DESC LIMIT :limit" +
+                   ") " +
+                   "SELECT " +
+                   "  JSON_UNQUOTE(JSON_EXTRACT(r.data_json, :primaryCategoryPath)) as primaryCategory, " +
+                   "  JSON_UNQUOTE(JSON_EXTRACT(r.data_json, :secondaryCategoryPath)) as secondaryCategory, " +
+                   "  COUNT(*) as value " +
+                   "FROM row_entities r " +
+                   "JOIN TopPrimaryCategories tpc ON JSON_UNQUOTE(JSON_EXTRACT(r.data_json, :primaryCategoryPath)) = tpc.p_category " +
+                   "WHERE r.file_id = :fileId " +
+                   "AND JSON_UNQUOTE(JSON_EXTRACT(r.data_json, :secondaryCategoryPath)) IS NOT NULL " +
+                   "GROUP BY primaryCategory, secondaryCategory " +
+                   "ORDER BY primaryCategory, secondaryCategory",
+           nativeQuery = true)
+    List<GroupedGraphResult> getGroupedCategoryCounts(
+            @Param("fileId") Long fileId,
+            @Param("primaryCategoryPath") String primaryCategoryPath,
+            @Param("secondaryCategoryPath") String secondaryCategoryPath,
+            @Param("limit") Integer limit
     );
 
     @Query(value = "SELECT " +
-                   "JSON_UNQUOTE(JSON_EXTRACT(data_json, :categoryJsonPath)) as category, " +
+                   "JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) as category, " +
                    "SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(data_json, :valueJsonPath)) AS DECIMAL(18, 4))) as count " +
                    "FROM row_entities " +
-                   "WHERE file_id = :fileId AND JSON_UNQUOTE(JSON_EXTRACT(data_json, :categoryJsonPath)) IS NOT NULL " +
+                   "WHERE file_id = :fileId AND JSON_UNQUOTE(JSON_EXTRACT(data_json, :jsonPath)) IS NOT NULL " +
                    "GROUP BY category " +
-                   "ORDER BY category ASC",
+                   "ORDER BY count DESC LIMIT :limit",
            nativeQuery = true)
-    // <-- MODIFIER LE TYPE DE RETOUR ICI
     List<GraphResult> getCategorySumsForGraph(
             @Param("fileId") Long fileId,
-            @Param("categoryJsonPath") String categoryJsonPath,
-            @Param("valueJsonPath") String valueJsonPath
+            @Param("jsonPath") String jsonPath,
+            @Param("valueJsonPath") String valueJsonPath,
+            @Param("limit") Integer limit
     );
 }

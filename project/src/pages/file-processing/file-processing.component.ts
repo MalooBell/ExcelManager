@@ -204,11 +204,11 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
 
     <!-- Graph Modal -->
     <app-graph-modal 
-      *ngIf="isShowingGraphModal"
-      [fileId]="fileId"
-      [columns]="columns"
-      (closeModal)="isShowingGraphModal = false">
-    </app-graph-modal>
+  *ngIf="isShowingGraphModal"
+  [fileId]="fileId"
+  [columns]="columns"
+  [sampleRows]="rows"  (closeModal)="isShowingGraphModal = false">
+</app-graph-modal>
 
     <!-- Row History Modal -->
     <div *ngIf="isShowingHistoryModal" class="modal-overlay" (click)="closeHistoryModal()">

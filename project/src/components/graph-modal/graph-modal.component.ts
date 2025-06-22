@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Chart, ChartConfiguration, ChartType, registerables } from 'chart.js';
 import { GraphService } from '../../services/graph.service';
 import { GraphRequest, GraphData } from '../../models/graph.model';
+import { RowEntity } from '../../models/row.model';
 
 Chart.register(...registerables);
 
@@ -53,7 +54,7 @@ Chart.register(...registerables);
             <div class="form-group" *ngIf="graphRequest.chartType === 'bar' && graphRequest.aggregationType === 'SUM'">
               <label class="form-label">Colonnes valeurs (Axe Y)</label>
               <div class="space-y-2">
-                <div *ngFor="let column of columns" class="flex items-center">
+                <div *ngFor="let column of numericColumns" class="flex items-center">
                   <input 
                     type="checkbox" 
                     [id]="'col-' + column"
@@ -63,6 +64,24 @@ Chart.register(...registerables);
                   <label [for]="'col-' + column" class="text-sm">{{ column }}</label>
                 </div>
               </div>
+            </div>
+
+            <div class="form-group" *ngIf="graphRequest.chartType === 'bar'">
+                <label class="form-label">Grouper par (Optionnel)</label>
+                <select class="form-control" [(ngModel)]="graphRequest.groupingColumn">
+                    <option value="">-- Aucun groupage --</option>
+                    <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Nombre de résultats à afficher</label>
+                <select class="form-control" [(ngModel)]="limit">
+                    <option [ngValue]="10">Top 10</option>
+                    <option [ngValue]="20">Top 20</option>
+                    <option [ngValue]="50">Top 50</option>
+                    <option [ngValue]="null">Tout afficher (lent)</option>
+                </select>
             </div>
 
             <button 
@@ -161,6 +180,7 @@ Chart.register(...registerables);
 export class GraphModalComponent implements OnInit {
   @Input() fileId!: number;
   @Input() columns: string[] = [];
+  @Input() sampleRows: RowEntity[] = []; // <-- AJOUTER L'INPUT pour recevoir les lignes
   @Output() closeModal = new EventEmitter<void>();
   @ViewChild('chartCanvas', { static: true }) chartCanvas!: ElementRef<HTMLCanvasElement>;
 
@@ -168,12 +188,15 @@ export class GraphModalComponent implements OnInit {
     chartType: 'pie',
     categoryColumn: '',
     valueColumns: [],
-    aggregationType: 'COUNT' // <-- Valeur par défaut
+    aggregationType: 'COUNT', // <-- Valeur par défaut
+    groupingColumn: '' // <-- AJOUTER CETTE LIGNE (initialisée à vide)
   };
 
   chartData: GraphData | null = null;
   loading = false;
   chart: Chart | null = null;
+  numericColumns: string[] = []; // <-- AJOUTER CETTE PROPRIÉTÉ
+  limit: number | null = 20;
 
   constructor(private graphService: GraphService) {}
 
@@ -187,6 +210,26 @@ export class GraphModalComponent implements OnInit {
     if (event.target === event.currentTarget) {
       this.close();
     }
+    this.detectNumericColumns(); // <-- APPELER LA NOUVELLE MÉTHODE
+  }
+
+  private detectNumericColumns() {
+      if (this.sampleRows.length === 0) {
+          this.numericColumns = [...this.columns]; // Si pas de données, on les affiche toutes
+          return;
+      }
+
+      this.numericColumns = this.columns.filter(column => {
+          // On vérifie la première ligne de données qui a une valeur pour cette colonne
+          const firstRowWithValue = this.sampleRows.find(row => row.data[column] != null && row.data[column] !== '');
+          if (!firstRowWithValue) {
+              return false; // Si la colonne est vide, on ne la considère pas numérique
+          }
+
+          const sampleValue = firstRowWithValue.data[column];
+          // Une valeur est considérée numérique si elle n'est pas NaN après conversion
+          return !isNaN(parseFloat(sampleValue.toString().replace(',', '.')));
+      });
   }
 
   close() {
@@ -236,8 +279,10 @@ export class GraphModalComponent implements OnInit {
     }
 
     this.loading = true;
+
+     const requestToSend = { ...this.graphRequest, limit: this.limit };// regarde ici si ça ne marche pas
     
-    this.graphService.generateGraph(this.fileId, this.graphRequest).subscribe({
+    this.graphService.generateGraph(this.fileId, requestToSend).subscribe({
       next: (data) => {
         this.chartData = data;
         this.renderChart();
