@@ -1,3 +1,4 @@
+// CHEMIN : excel-upload-service/src/main/java/excel_upload_service/controller/RowEntityController.java
 package excel_upload_service.controller;
 
 import excel_upload_service.dto.RowEntityDto;
@@ -23,22 +24,13 @@ public class RowEntityController {
         this.downloadService = downloadService;
     }
 
-    // This endpoint now gets rows for a specific file, with search and sorting.
-    @GetMapping("/file/{fileId}")
-    public Page<RowEntityDto> getRowsForFile(
-            @PathVariable Long fileId,
+    // L'endpoint principal pour lister les lignes est maintenant basé sur sheetId
+    @GetMapping("/sheet/{sheetId}")
+    public Page<RowEntityDto> getRowsForSheet(
+            @PathVariable Long sheetId,
             @RequestParam(required = false) String keyword,
             Pageable pageable) {
-        return service.searchByFileId(fileId, keyword, pageable);
-    }
-
-    // The generic search is still useful for a global search view.
-    @GetMapping
-    public Page<RowEntityDto> searchAll(
-            @RequestParam(required = false) String fileName,
-            @RequestParam(required = false) String keyword,
-            Pageable pageable) {
-        return service.search(fileName, keyword, pageable);
+        return service.searchBySheetId(sheetId, keyword, pageable);
     }
 
     @GetMapping("/{id}")
@@ -46,10 +38,10 @@ public class RowEntityController {
         return service.getById(id);
     }
 
-    // When creating a row, we must associate it with a file.
-    @PostMapping("/file/{fileId}")
-    public RowEntityDto create(@PathVariable Long fileId, @RequestBody RowEntityDto dto) {
-        return service.create(fileId, dto);
+    // La création d'une ligne se fait maintenant dans le contexte d'une feuille
+    @PostMapping("/sheet/{sheetId}")
+    public RowEntityDto create(@PathVariable Long sheetId, @RequestBody RowEntityDto dto) {
+        return service.create(sheetId, dto);
     }
 
     @PutMapping("/{id}")
@@ -62,11 +54,14 @@ public class RowEntityController {
         service.delete(id);
     }
 
-    @GetMapping("/download")
+    // L'endpoint de téléchargement est aussi basé sur sheetId
+    @GetMapping("/sheet/{sheetId}/download")
     public void downloadExcel(
-            @RequestParam(required = false) String fileName,
+            @PathVariable Long sheetId,
             @RequestParam(required = false) String keyword,
             HttpServletResponse response) throws IOException {
-        downloadService.downloadFilteredData(fileName, keyword, response);
+        downloadService.downloadSheetData(sheetId, keyword, response);
     }
+
+    
 }

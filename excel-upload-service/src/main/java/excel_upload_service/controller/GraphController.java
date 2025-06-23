@@ -1,3 +1,4 @@
+// CHEMIN : excel-upload-service/src/main/java/excel_upload_service/controller/GraphController.java
 package excel_upload_service.controller;
 
 import excel_upload_service.dto.GraphRequestDto;
@@ -19,12 +20,13 @@ public class GraphController {
         this.graphService = graphService;
     }
 
-    @PostMapping("/file/{fileId}")
+    // CORRECTION : L'endpoint utilise maintenant {sheetId}
+    @PostMapping("/sheet/{sheetId}")
     public ResponseEntity<Map<String, Object>> generateGraphData(
-            @PathVariable Long fileId,
+            @PathVariable Long sheetId,
             @RequestBody GraphRequestDto request) throws IOException {
 
-        Map<String, Object> graphData = graphService.generateChartData(fileId, request);
+        Map<String, Object> graphData = graphService.generateChartData(sheetId, request);
         return ResponseEntity.ok(graphData);
     }
 }

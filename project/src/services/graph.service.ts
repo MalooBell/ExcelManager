@@ -9,7 +9,7 @@ import { GraphRequest, GraphData } from '../models/graph.model';
 export class GraphService {
   constructor(private api: ApiService) {}
 
-  generateGraph(fileId: number, request: GraphRequest): Observable<GraphData> {
-    return this.api.post<GraphData>(`/graphs/file/${fileId}`, request);
+  generateGraph(sheetId: number, request: GraphRequest): Observable<GraphData> {
+    return this.api.post<GraphData>(`/graphs/sheet/${sheetId}`, request);
   }
 }

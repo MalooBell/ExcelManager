@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 import { FileEntity, UploadResponse, PageResponse } from '../models/file.model';
+import { SheetEntity } from '../models/sheet.model';
 import { HttpParams } from '@angular/common/http';
 
 @Injectable({
@@ -16,13 +17,13 @@ export class FileService {
     return this.api.postFormData<UploadResponse>('/excel/upload', formData);
   }
 
-  getFiles(page: number = 0, size: number = 10, search?: string): Observable<PageResponse<FileEntity>> { // MODIFICATION : ajout de 'search'
+  getFiles(page: number = 0, size: number = 10, search?: string): Observable<PageResponse<FileEntity>> {
     let params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString())
       .set('sort', 'uploadTimestamp,desc');
 
-    if (search) { // AJOUT DE CETTE CONDITION
+    if (search) {
       params = params.set('search', search);
     }
       
@@ -33,14 +34,17 @@ export class FileService {
     return this.api.get<FileEntity>(`/files/${id}`);
   }
 
+  getSheets(fileId: number): Observable<SheetEntity[]> {
+    return this.api.get<SheetEntity[]>(`/files/${fileId}/sheets`);
+  }
+
   deleteFile(id: number): Observable<void> {
     return this.api.delete<void>(`/files/${id}`);
   }
 
-  downloadFile(fileName?: string, keyword?: string): Observable<Blob> {
+  downloadSheet(sheetId: number, fileName: string, keyword?: string): Observable<Blob> {
     let params = new HttpParams();
-    if (fileName) params = params.set('fileName', fileName);
     if (keyword) params = params.set('keyword', keyword);
-    return this.api.downloadFile('/rows/download', params);
+    return this.api.downloadFile(`/rows/sheet/${sheetId}/download`, params);
   }
 }

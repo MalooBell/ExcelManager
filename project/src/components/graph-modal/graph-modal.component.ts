@@ -14,121 +14,121 @@ Chart.register(...registerables);
   imports: [CommonModule, FormsModule],
   template: `
     <div class="modal-overlay" (click)="onOverlayClick($event)">
-  <div class="modal" style="width: 95vw; max-width: 1200px; max-height: 90vh;">
-    <div class="modal-header">
-      <h3 class="modal-title">Générer un graphique</h3>
-      <button class="modal-close" (click)="close()">×</button>
-    </div>
+      <div class="modal" style="width: 95vw; max-width: 1200px; max-height: 90vh;">
+        <div class="modal-header">
+          <h3 class="modal-title">Générer un graphique</h3>
+          <button class="modal-close" (click)="close()">×</button>
+        </div>
 
-    <div class="modal-body" style="max-height: calc(90vh - 200px); overflow-y: auto;">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <div class="lg:col-span-1">
-          <div class="card">
-            <h4 class="text-lg font-semibold mb-4">Configuration du graphique</h4>
+        <div class="modal-body" style="max-height: calc(90vh - 200px); overflow-y: auto;">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            <div class="form-group">
-              <label class="form-label">Type de graphique</label>
-              <select class="form-control" [(ngModel)]="graphRequest.chartType" (change)="onConfigChange()">
-                <option value="pie">Graphique en secteurs</option>
-                <option value="bar">Graphique en barres</option>
-              </select>
+            <div class="lg:col-span-1">
+              <div class="card">
+                <h4 class="text-lg font-semibold mb-4">Configuration du graphique</h4>
+                
+                <div class="form-group">
+                  <label class="form-label">Type de graphique</label>
+                  <select class="form-control" [(ngModel)]="graphRequest.chartType" (change)="onConfigChange()">
+                    <option value="pie">Graphique en secteurs</option>
+                    <option value="bar">Graphique en barres</option>
+                  </select>
+                </div>
+
+                <div class="form-group" *ngIf="graphRequest.chartType === 'bar'">
+                    <label class="form-label">Opération d'agrégation</label>
+                    <select class="form-control" [(ngModel)]="graphRequest.aggregationType">
+                        <option value="COUNT">Compter les occurrences</option>
+                        <option value="SUM">Sommer les valeurs (numériques)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Colonne catégorie (Axe X)</label>
+                  <select class="form-control" [(ngModel)]="graphRequest.categoryColumn" (change)="onConfigChange()">
+                    <option value="">Sélectionnez une colonne</option>
+                    <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
+                  </select>
+                </div>
+
+                <div class="form-group" *ngIf="graphRequest.chartType === 'bar' && graphRequest.aggregationType === 'SUM'">
+                  <label class="form-label">Colonnes valeurs (Axe Y)</label>
+                  <div class="space-y-2">
+                    <div *ngFor="let column of numericColumns" class="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        [id]="'col-' + column"
+                        [checked]="graphRequest.valueColumns.includes(column)"
+                        (change)="onValueColumnChange(column, $event)"
+                        class="mr-2">
+                      <label [for]="'col-' + column" class="text-sm">{{ column }}</label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-group" *ngIf="graphRequest.chartType === 'bar'">
+                    <label class="form-label">Grouper par (Optionnel)</label>
+                    <select class="form-control" [(ngModel)]="graphRequest.groupingColumn">
+                        <option value="">-- Aucun groupage --</option>
+                        <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Nombre de résultats à afficher</label>
+                    <select class="form-control" [(ngModel)]="graphRequest.limit">
+                        <option [ngValue]="10">Top 10</option>
+                        <option [ngValue]="20">Top 20</option>
+                        <option [ngValue]="50">Top 50</option>
+                        <option [ngValue]="null">Tout afficher (lent)</option>
+                    </select>
+                </div>
+
+                <button 
+                  class="btn btn-primary w-full"
+                  (click)="generateGraph()"
+                  [disabled]="!canGenerateGraph() || loading">
+                  <div *ngIf="loading" class="loading-spinner"></div>
+                  Générer le graphique
+                </button>
+              </div>
             </div>
 
-            <div class="form-group" *ngIf="graphRequest.chartType === 'bar'">
-                <label class="form-label">Opération d'agrégation</label>
-                <select class="form-control" [(ngModel)]="graphRequest.aggregationType">
-                    <option value="COUNT">Compter les occurrences</option>
-                    <option value="SUM">Sommer les valeurs (numériques)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Colonne catégorie (Axe X)</label>
-              <select class="form-control" [(ngModel)]="graphRequest.categoryColumn" (change)="onConfigChange()">
-                <option value="">Sélectionnez une colonne</option>
-                <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
-              </select>
-            </div>
-
-            <div class="form-group" *ngIf="graphRequest.chartType === 'bar' && graphRequest.aggregationType === 'SUM'">
-              <label class="form-label">Colonnes valeurs (Axe Y)</label>
-              <div class="space-y-2">
-                <div *ngFor="let column of numericColumns" class="flex items-center">
-                  <input 
-                    type="checkbox" 
-                    [id]="'col-' + column"
-                    [checked]="graphRequest.valueColumns.includes(column)"
-                    (change)="onValueColumnChange(column, $event)"
-                    class="mr-2">
-                  <label [for]="'col-' + column" class="text-sm">{{ column }}</label>
+            <div class="lg:col-span-2">
+              <div class="card">
+                <div class="flex justify-between items-center mb-4">
+                  <h4 class="text-lg font-semibold">Aperçu du graphique</h4>
+                  <button 
+                    *ngIf="chartData" 
+                    class="btn btn-success btn-sm"
+                    (click)="downloadChart()">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Télécharger
+                  </button>
+                </div>
+                
+                <div class="chart-container" style="position: relative; height: 400px;">
+                  <canvas #chartCanvas></canvas>
+                  <div *ngIf="!chartData" class="absolute inset-0 flex items-center justify-center">
+                    <p class="text-gray-500">Configurez les paramètres et cliquez sur "Générer le graphique"</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div class="form-group" *ngIf="graphRequest.chartType === 'bar'">
-                <label class="form-label">Grouper par (Optionnel)</label>
-                <select class="form-control" [(ngModel)]="graphRequest.groupingColumn">
-                    <option value="">-- Aucun groupage --</option>
-                    <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Nombre de résultats à afficher</label>
-                <select class="form-control" [(ngModel)]="limit">
-                    <option [ngValue]="10">Top 10</option>
-                    <option [ngValue]="20">Top 20</option>
-                    <option [ngValue]="50">Top 50</option>
-                    <option [ngValue]="null">Tout afficher (lent)</option>
-                </select>
-            </div>
-
-            <button 
-              class="btn btn-primary w-full"
-              (click)="generateGraph()"
-              [disabled]="!canGenerateGraph() || loading">
-              <div *ngIf="loading" class="loading-spinner"></div>
-              Générer le graphique
-            </button>
           </div>
         </div>
 
-        <div class="lg:col-span-2">
-          <div class="card">
-            <div class="flex justify-between items-center mb-4">
-              <h4 class="text-lg font-semibold">Aperçu du graphique</h4>
-              <button 
-                *ngIf="chartData" 
-                class="btn btn-success btn-sm"
-                (click)="downloadChart()">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-                Télécharger
-              </button>
-            </div>
-            
-            <div class="chart-container" style="position: relative; height: 400px;">
-              <canvas #chartCanvas></canvas>
-              <div *ngIf="!chartData" class="absolute inset-0 flex items-center justify-center">
-                <p class="text-gray-500">Configurez les paramètres et cliquez sur "Générer le graphique"</p>
-              </div>
-            </div>
-          </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="close()">
+            Fermer
+          </button>
         </div>
-
       </div>
     </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn btn-secondary" (click)="close()">
-        Fermer
-      </button>
-    </div>
-  </div>
-</div>
   `,
   styles: [`
     .grid {
@@ -178,9 +178,9 @@ Chart.register(...registerables);
   `]
 })
 export class GraphModalComponent implements OnInit {
-  @Input() fileId!: number;
+  @Input() sheetId!: number; 
   @Input() columns: string[] = [];
-  @Input() sampleRows: RowEntity[] = []; // <-- AJOUTER L'INPUT pour recevoir les lignes
+  @Input() sampleRows: RowEntity[] = [];
   @Output() closeModal = new EventEmitter<void>();
   @ViewChild('chartCanvas', { static: true }) chartCanvas!: ElementRef<HTMLCanvasElement>;
 
@@ -188,15 +188,15 @@ export class GraphModalComponent implements OnInit {
     chartType: 'pie',
     categoryColumn: '',
     valueColumns: [],
-    aggregationType: 'COUNT', // <-- Valeur par défaut
-    groupingColumn: '' // <-- AJOUTER CETTE LIGNE (initialisée à vide)
+    aggregationType: 'COUNT',
+    groupingColumn: '',
+    limit: 20
   };
 
   chartData: GraphData | null = null;
   loading = false;
   chart: Chart | null = null;
-  numericColumns: string[] = []; // <-- AJOUTER CETTE PROPRIÉTÉ
-  limit: number | null = 20;
+  numericColumns: string[] = [];
 
   constructor(private graphService: GraphService) {}
 
@@ -204,38 +204,47 @@ export class GraphModalComponent implements OnInit {
     if (this.columns.length > 0) {
       this.graphRequest.categoryColumn = this.columns[0];
     }
+    this.detectNumericColumns();
   }
 
   onOverlayClick(event: MouseEvent) {
     if (event.target === event.currentTarget) {
       this.close();
     }
-    this.detectNumericColumns(); // <-- APPELER LA NOUVELLE MÉTHODE
+  }
+
+  generateGraph() {
+    if (!this.canGenerateGraph()) return;
+    this.loading = true;
+    
+    this.graphService.generateGraph(this.sheetId, this.graphRequest).subscribe({
+      next: (data: GraphData) => {
+        this.chartData = data;
+        this.renderChart();
+        this.loading = false;
+      },
+      error: (error: any) => {
+        console.error('Erreur lors de la génération du graphique:', error);
+        this.loading = false;
+      }
+    });
   }
 
   private detectNumericColumns() {
       if (this.sampleRows.length === 0) {
-          this.numericColumns = [...this.columns]; // Si pas de données, on les affiche toutes
+          this.numericColumns = [...this.columns];
           return;
       }
-
       this.numericColumns = this.columns.filter(column => {
-          // On vérifie la première ligne de données qui a une valeur pour cette colonne
           const firstRowWithValue = this.sampleRows.find(row => row.data[column] != null && row.data[column] !== '');
-          if (!firstRowWithValue) {
-              return false; // Si la colonne est vide, on ne la considère pas numérique
-          }
-
+          if (!firstRowWithValue) return false;
           const sampleValue = firstRowWithValue.data[column];
-          // Une valeur est considérée numérique si elle n'est pas NaN après conversion
           return !isNaN(parseFloat(sampleValue.toString().replace(',', '.')));
       });
   }
 
   close() {
-    if (this.chart) {
-      this.chart.destroy();
-    }
+    if (this.chart) this.chart.destroy();
     this.closeModal.emit();
   }
 
@@ -243,16 +252,14 @@ export class GraphModalComponent implements OnInit {
     if (this.graphRequest.chartType === 'pie') {
       this.graphRequest.valueColumns = [];
       this.graphRequest.aggregationType = 'COUNT';
-    } else {
-      // Pour les barres, si on vient de changer, on met COUNT par défaut
-      if (!this.graphRequest.aggregationType) {
-        this.graphRequest.aggregationType = 'COUNT';
-      }
+    } else if (!this.graphRequest.aggregationType) {
+      this.graphRequest.aggregationType = 'COUNT';
     }
   }
 
   onValueColumnChange(column: string, event: any) {
-    if (event.target.checked) {
+    const isChecked = event.target.checked;
+    if (isChecked) {
       if (!this.graphRequest.valueColumns.includes(column)) {
         this.graphRequest.valueColumns.push(column);
       }
@@ -262,124 +269,49 @@ export class GraphModalComponent implements OnInit {
   }
 
   canGenerateGraph(): boolean {
-    if (!this.graphRequest.categoryColumn) {
-      return false;
-    }
-    // Pour un COUNT, on n'a pas besoin de valueColumns
-    if (this.graphRequest.aggregationType === 'COUNT') {
-      return true;
-    }
-    // Pour un SUM, on a besoin d'au moins une valueColumn
+    if (!this.graphRequest.categoryColumn) return false;
+    if (this.graphRequest.aggregationType === 'COUNT') return true;
     return this.graphRequest.valueColumns.length > 0;
   }
-
-  generateGraph() {
-    if (!this.canGenerateGraph()) {
-      return;
-    }
-
-    this.loading = true;
-
-     const requestToSend = { ...this.graphRequest, limit: this.limit };// regarde ici si ça ne marche pas
-    
-    this.graphService.generateGraph(this.fileId, requestToSend).subscribe({
-      next: (data) => {
-        this.chartData = data;
-        this.renderChart();
-        this.loading = false;
-      },
-      error: (error) => {
-        console.error('Erreur lors de la génération du graphique:', error);
-        this.loading = false;
-      }
-    });
-  }
-
+  
   private renderChart() {
     if (!this.chartData) return;
-
-    if (this.chart) {
-      this.chart.destroy();
-    }
-
+    if (this.chart) this.chart.destroy();
     const ctx = this.chartCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
-
     const config: ChartConfiguration = {
       type: this.graphRequest.chartType as ChartType,
       data: {
         labels: this.chartData.labels,
         datasets: this.chartData.datasets.map((dataset, index) => ({
           ...dataset,
-          backgroundColor: this.getBackgroundColors(index),
-          borderColor: this.getBorderColors(index),
+          backgroundColor: this.getBackgroundColors(index, this.chartData?.labels.length || 1),
+          borderColor: this.getBorderColors(index, this.chartData?.labels.length || 1),
           borderWidth: 1
         }))
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'top'
-          },
-          title: {
-            display: true,
-            text: `Graphique ${this.graphRequest.chartType} - ${this.graphRequest.categoryColumn}`
-          }
-        },
-        scales: this.graphRequest.chartType === 'pie' ? undefined : {
-          y: {
-            beginAtZero: true
-          }
-        }
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' }, title: { display: true, text: `Graphique ${this.graphRequest.chartType}` } },
+        scales: this.graphRequest.chartType === 'pie' ? undefined : { y: { beginAtZero: true } }
       }
     };
-
     this.chart = new Chart(ctx, config);
   }
 
-  private getBackgroundColors(datasetIndex: number): string[] {
-    const colors = [
-      'rgba(30, 58, 138, 0.8)',   // Primary blue
-      'rgba(5, 150, 105, 0.8)',   // Accent green
-      'rgba(59, 130, 246, 0.8)',  // Light blue
-      'rgba(16, 185, 129, 0.8)',  // Light green
-      'rgba(99, 102, 241, 0.8)',  // Indigo
-      'rgba(245, 158, 11, 0.8)',  // Amber
-      'rgba(239, 68, 68, 0.8)',   // Red
-      'rgba(168, 85, 247, 0.8)',  // Purple
-    ];
-    
-    if (this.graphRequest.chartType === 'pie') {
-      return colors;
-    }
-    
+  private getBackgroundColors(datasetIndex: number, dataLength: number): string[] {
+    const colors = ['rgba(30, 58, 138, 0.8)', 'rgba(5, 150, 105, 0.8)', 'rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(99, 102, 241, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(168, 85, 247, 0.8)'];
+    if (this.graphRequest.chartType === 'pie') return colors.slice(0, dataLength);
     return [colors[datasetIndex % colors.length]];
   }
-
-  private getBorderColors(datasetIndex: number): string[] {
-    const colors = [
-      'rgba(30, 58, 138, 1)',   // Primary blue
-      'rgba(5, 150, 105, 1)',   // Accent green
-      'rgba(59, 130, 246, 1)',  // Light blue
-      'rgba(16, 185, 129, 1)',  // Light green
-      'rgba(99, 102, 241, 1)',  // Indigo
-      'rgba(245, 158, 11, 1)',  // Amber
-      'rgba(239, 68, 68, 1)',   // Red
-      'rgba(168, 85, 247, 1)',  // Purple
-    ];
-    
-    if (this.graphRequest.chartType === 'pie') {
-      return colors;
-    }
-    
+  private getBorderColors(datasetIndex: number, dataLength: number): string[] {
+    const colors = ['rgba(30, 58, 138, 1)', 'rgba(5, 150, 105, 1)', 'rgba(59, 130, 246, 1)', 'rgba(16, 185, 129, 1)', 'rgba(99, 102, 241, 1)', 'rgba(245, 158, 11, 1)', 'rgba(239, 68, 68, 1)', 'rgba(168, 85, 247, 1)'];
+    if (this.graphRequest.chartType === 'pie') return colors.slice(0, dataLength);
     return [colors[datasetIndex % colors.length]];
   }
 
   downloadChart() {
     if (!this.chart) return;
-
     const link = document.createElement('a');
     link.download = `graphique-${this.graphRequest.chartType}-${Date.now()}.png`;
     link.href = this.chart.toBase64Image();

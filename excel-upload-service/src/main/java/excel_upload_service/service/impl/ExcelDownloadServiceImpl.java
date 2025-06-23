@@ -1,3 +1,4 @@
+// CHEMIN : excel-upload-service/src/main/java/excel_upload_service/service/impl/ExcelDownloadServiceImpl.java
 package excel_upload_service.service.impl;
 
 import com.alibaba.excel.EasyExcel;
@@ -5,8 +6,11 @@ import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import excel_upload_service.model.RowEntity;
+import excel_upload_service.model.SheetEntity;
 import excel_upload_service.repository.RowEntityRepository;
+import excel_upload_service.repository.SheetEntityRepository;
 import excel_upload_service.service.ExcelDownloadService;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,54 +28,56 @@ import java.util.Map;
 public class ExcelDownloadServiceImpl implements ExcelDownloadService {
 
     private final RowEntityRepository rowRepository;
+    private final SheetEntityRepository sheetRepository; // NOUVEAU
     private final ObjectMapper objectMapper;
 
-    public ExcelDownloadServiceImpl(RowEntityRepository rowRepository, ObjectMapper objectMapper) {
+    public ExcelDownloadServiceImpl(RowEntityRepository rowRepository, SheetEntityRepository sheetRepository, ObjectMapper objectMapper) {
         this.rowRepository = rowRepository;
+        this.sheetRepository = sheetRepository; // NOUVEAU
         this.objectMapper = objectMapper;
     }
 
     @Override
-    public void downloadFilteredData(String fileName, String keyword, HttpServletResponse response) throws IOException {
-        // On récupère toutes les données correspondantes (sans pagination pour le téléchargement)
-        // ATTENTION: Pour de très gros volumes, une approche par streaming serait plus robuste.
+    public void downloadSheetData(Long sheetId, String keyword, HttpServletResponse response) throws IOException {
+        // 1. Récupérer l'entité feuille pour obtenir le nom et les en-têtes
+        SheetEntity sheet = sheetRepository.findById(sheetId)
+                .orElseThrow(() -> new EntityNotFoundException("Sheet not found with ID: " + sheetId));
+        
+        // 2. Récupérer toutes les lignes correspondantes pour cette feuille
         Pageable pageable = PageRequest.of(0, Integer.MAX_VALUE); // Récupère tout
-        List<RowEntity> results = rowRepository.searchWithFileAndKeyword(fileName, keyword, pageable).getContent();
+        List<RowEntity> results = rowRepository.searchBySheetIdAndKeyword(sheetId, keyword, pageable).getContent();
 
         if (results.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
             return;
         }
 
-        // Préparer la réponse HTTP pour un fichier Excel
+        // 3. Préparer la réponse HTTP
+        String fileName = URLEncoder.encode(sheet.getSheetName() + ".xlsx", StandardCharsets.UTF_8);
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        String encodedFileName = URLEncoder.encode("export.xlsx", StandardCharsets.UTF_8.toString());
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + encodedFileName + "\"");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
 
-        // Extraire les en-têtes de la première ligne de données
-        // On utilise un LinkedHashMap pour préserver l'ordre des colonnes.
-        Map<String, Object> firstRowData = objectMapper.readValue(results.get(0).getDataJson(), new TypeReference<>() {});
-        List<String> headers = new ArrayList<>(firstRowData.keySet());
+        // 4. Extraire les en-têtes depuis l'entité feuille
+        List<String> headers = objectMapper.readValue(sheet.getHeadersJson(), new TypeReference<>() {});
+        List<List<String>> excelHeaders = new ArrayList<>();
+        headers.forEach(header -> excelHeaders.add(List.of(header)));
 
+        // 5. Préparer les données pour l'écriture
         List<List<Object>> dataToWrite = new ArrayList<>();
         for (RowEntity entity : results) {
             Map<String, Object> rowData = objectMapper.readValue(entity.getDataJson(), new TypeReference<LinkedHashMap<String, Object>>() {});
             List<Object> rowValues = new ArrayList<>();
-            for(String header : headers) {
+            for (String header : headers) {
                 rowValues.add(rowData.get(header));
             }
             dataToWrite.add(rowValues);
         }
 
-        // Créer les en-têtes pour EasyExcel (List<List<String>>)
-        List<List<String>> excelHeaders = new ArrayList<>();
-        headers.forEach(header -> excelHeaders.add(List.of(header)));
-
-        // Écrire les données dans le flux de la réponse
+        // 6. Écrire les données dans le fichier Excel
         EasyExcel.write(response.getOutputStream())
                 .head(excelHeaders)
-                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy()) // Ajuste la largeur des colonnes
-                .sheet("Résultats")
+                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                .sheet(sheet.getSheetName())
                 .doWrite(dataToWrite);
     }
 }

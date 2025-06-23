@@ -1,3 +1,4 @@
+// CHEMIN : excel-upload-service/src/main/java/excel_upload_service/model/RowEntity.java
 package excel_upload_service.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -7,9 +8,8 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "row_entities", indexes = {
-        @Index(name = "idx_sheet_index", columnList = "sheetIndex"),
         @Index(name = "idx_created_at", columnList = "createdAt"),
-        @Index(name = "idx_file_id", columnList = "file_id") // Index for the foreign key
+        @Index(name = "idx_sheet_id", columnList = "sheet_id") // Index sur la nouvelle clé étrangère
 })
 public class RowEntity {
 
@@ -21,15 +21,11 @@ public class RowEntity {
     @Column(columnDefinition = "LONGTEXT", nullable = false)
     private String dataJson;
 
-    @Column(nullable = false)
-    private Integer sheetIndex;
-
-    // Many-to-one relationship with FileEntity.
-    // Fetch.LAZY is crucial for performance.
+    // La relation est maintenant avec SheetEntity
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "file_id", nullable = false)
-    @JsonBackReference // Prevents infinite recursion during serialization
-    private FileEntity file;
+    @JoinColumn(name = "sheet_id", nullable = false)
+    @JsonBackReference
+    private SheetEntity sheet;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -39,29 +35,20 @@ public class RowEntity {
         createdAt = LocalDateTime.now();
     }
 
-    // --- CONSTRUCTORS, GETTERS, SETTERS, BUILDER ---
-
+    // --- CONSTRUCTEURS, GETTERS, SETTERS, BUILDER ---
     public RowEntity() {}
 
-    // Updated constructor
-    public RowEntity(String dataJson, Integer sheetIndex, FileEntity file) {
+    public RowEntity(String dataJson, SheetEntity sheet) {
         this.dataJson = dataJson;
-        this.sheetIndex = sheetIndex;
-        this.file = file;
+        this.sheet = sheet;
     }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-
     public String getDataJson() { return dataJson; }
     public void setDataJson(String dataJson) { this.dataJson = dataJson; }
-
-    public Integer getSheetIndex() { return sheetIndex; }
-    public void setSheetIndex(Integer sheetIndex) { this.sheetIndex = sheetIndex; }
-
-    public FileEntity getFile() { return file; }
-    public void setFile(FileEntity file) { this.file = file; }
-
+    public SheetEntity getSheet() { return sheet; }
+    public void setSheet(SheetEntity sheet) { this.sheet = sheet; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
@@ -69,51 +56,36 @@ public class RowEntity {
         return new Builder();
     }
 
-    public static class Builder {
+     public static class Builder {
         private String dataJson;
-        private Integer sheetIndex;
-        private FileEntity file;
+        private SheetEntity sheet;
 
         public Builder dataJson(String dataJson) {
             this.dataJson = dataJson;
             return this;
         }
 
-        public Builder sheetIndex(Integer sheetIndex) {
-            this.sheetIndex = sheetIndex;
-            return this;
-        }
-
-        public Builder file(FileEntity file) {
-            this.file = file;
+        public Builder sheet(SheetEntity sheet) {
+            this.sheet = sheet;
             return this;
         }
 
         public RowEntity build() {
-            return new RowEntity(dataJson, sheetIndex, file);
+            return new RowEntity(dataJson, sheet);
         }
     }
-
+    
+    // equals, hashCode, toString...
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        RowEntity that = (RowEntity) o;
-        return Objects.equals(id, that.id);
+        RowEntity rowEntity = (RowEntity) o;
+        return Objects.equals(id, rowEntity.id);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(id);
-    }
-
-    @Override
-    public String toString() {
-        return "RowEntity{" +
-                "id=" + id +
-                ", sheetIndex=" + sheetIndex +
-                ", fileId=" + (file != null ? file.getId() : "null") +
-                ", createdAt=" + createdAt +
-                '}';
     }
 }

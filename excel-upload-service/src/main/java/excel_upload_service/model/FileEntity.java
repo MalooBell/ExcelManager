@@ -1,5 +1,7 @@
+// CHEMIN : excel-upload-service/src/main/java/excel_upload_service/model/FileEntity.java
 package excel_upload_service.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,25 +20,17 @@ public class FileEntity {
     @Column(nullable = false)
     private LocalDateTime uploadTimestamp;
 
-    @Lob
-    @Column(columnDefinition = "LONGTEXT")
-    private String headersJson; // Storing headers as JSON string
-
-    private long totalRows;
-
-    // One-to-many relationship: One file has many rows.
-    // Cascade.ALL means if we delete a FileEntity, all its associated RowEntities are also deleted.
-    // Fetch.LAZY is for performance, so rows are not loaded unless explicitly requested.
+    // La relation est maintenant avec les feuilles, pas directement avec les lignes.
     @OneToMany(mappedBy = "file", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    private List<RowEntity> rows;
+    @JsonManagedReference // Permet la sérialisation des feuilles depuis le fichier
+    private List<SheetEntity> sheets;
 
     @PrePersist
     protected void onCreate() {
         uploadTimestamp = LocalDateTime.now();
     }
 
-    // --- Constructors, Getters, and Setters ---
-
+    // --- Constructeurs, Getters, et Setters ---
     public FileEntity() {}
 
     public Long getId() {
@@ -62,28 +56,13 @@ public class FileEntity {
     public void setUploadTimestamp(LocalDateTime uploadTimestamp) {
         this.uploadTimestamp = uploadTimestamp;
     }
-
-    public String getHeadersJson() {
-        return headersJson;
+    
+    // Nouveaux getters/setters pour les feuilles
+    public List<SheetEntity> getSheets() {
+        return sheets;
     }
 
-    public void setHeadersJson(String headersJson) {
-        this.headersJson = headersJson;
-    }
-
-    public long getTotalRows() {
-        return totalRows;
-    }
-
-    public void setTotalRows(long totalRows) {
-        this.totalRows = totalRows;
-    }
-
-    public List<RowEntity> getRows() {
-        return rows;
-    }
-
-    public void setRows(List<RowEntity> rows) {
-        this.rows = rows;
+    public void setSheets(List<SheetEntity> sheets) {
+        this.sheets = sheets;
     }
 }

@@ -6,6 +6,7 @@ import { FileService } from '../../services/file.service';
 import { RowService } from '../../services/row.service';
 import { FileEntity, PageResponse } from '../../models/file.model';
 import { RowEntity, ModificationHistory } from '../../models/row.model';
+import { SheetEntity } from '../../models/sheet.model';
 import { RowEditModalComponent } from '../../components/row-edit-modal/row-edit-modal.component';
 import { GraphModalComponent } from '../../components/graph-modal/graph-modal.component';
 
@@ -13,326 +14,289 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
   selector: 'app-file-processing',
   standalone: true,
   imports: [CommonModule, FormsModule, RowEditModalComponent, GraphModalComponent],
-  template: `
-    <div class="container py-8" *ngIf="file">
-      <!-- Header -->
-      <div class="flex justify-between items-center mb-6">
+  template: `<div class="container py-8 page-transition" *ngIf="!loading && file">
+    <div class="flex justify-between items-center mb-6 slide-up">
         <div>
-          <button (click)="goBack()" class="btn btn-secondary btn-sm mb-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-            </svg>
-            Retour
-          </button>
-          <h1 class="text-2xl font-bold text-gray-900">{{ file.fileName }}</h1>
-          <p class="text-gray-600">{{ file.totalRows }} lignes • Téléchargé le {{ formatDate(file.uploadTimestamp) }}</p>
-        </div>
-        <div class="flex gap-3">
-          <button (click)="isShowingGraphModal = true" class="btn btn-success">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-            Graphique
-          </button>
-          <button (click)="downloadFile()" class="btn btn-primary">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            Télécharger
-          </button>
-        </div>
-      </div>
-
-      <!-- Search and Controls -->
-     <div class="card mb-6">
-  <div class="flex flex-col sm:flex-row gap-4 items-center">
-    
-    <div class="flex-1 w-full">
-      <input
-        type="text"
-        class="form-control"
-        placeholder="Rechercher dans les données..."
-        [(ngModel)]="searchKeyword"
-        (keyup.enter)="search()"
-        (input)="onSearchInput($event)">
-    </div>
-    
-    <div class="flex gap-2 items-center flex-wrap">
-      
-      <select id="row-page-size" class="form-control" [(ngModel)]="pageSize" (ngModelChange)="onPageSizeChange()">
-        <option *ngFor="let size of pageSizes" [value]="size">{{ size }} lignes</option>
-      </select>
-      
-      <select class="form-control" [(ngModel)]="sortField" (change)="onSortChange()">
-        <option value="">Trier par...</option>
-        <option *ngFor="let column of columns" [value]="'data.' + column">{{ column }}</option>
-        <option value="sheetIndex">Index feuille</option>
-      </select>
-      
-      <select class="form-control" [(ngModel)]="sortDirection" (change)="onSortChange()">
-        <option value="asc">Croissant</option>
-        <option value="desc">Décroissant</option>
-      </select>
-      
-      <button (click)="showAddModal()" class="btn btn-success">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-        </svg>
-        Ajouter
-      </button>
-    </div>
-
-  </div>
-</div>
-
-      <!-- Loading -->
-      <div *ngIf="loading" class="text-center py-8">
-        <div class="loading-spinner"></div>
-        <p class="text-gray-600 mt-2">Chargement des données...</p>
-      </div>
-
-      <!-- Data Table -->
-      <div *ngIf="!loading" class="card">
-        <div class="table-container">
-        <div class="overflow-x-auto">
-          <table class="table" *ngIf="rows.length > 0">
-            <thead>
-              <tr>
-                <th>Feuille</th>
-                <th *ngFor="let column of columns.slice(0, maxVisibleColumns)" 
-                    [title]="column">
-                  {{ column.length > 15 ? column.substring(0, 15) + '...' : column }}
-                </th>
-                <th *ngIf="columns.length > maxVisibleColumns">
-                  +{{ columns.length - maxVisibleColumns }} colonnes
-                </th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let row of rows" class="hover:bg-gray-50">
-                <td>{{ row.sheetIndex }}</td>
-                <td *ngFor="let column of columns.slice(0, maxVisibleColumns)" 
-                    [title]="row.data[column]">
-                  {{ truncateText(row.data[column], 20) }}
-                </td>
-                <td *ngIf="columns.length > maxVisibleColumns">
-                  <button (click)="showRowDetails(row)" class="btn btn-outline btn-sm">
-                    Voir tout
-                  </button>
-                </td>
-                <td>
-                  <div class="flex gap-1">
-                    <button (click)="showEditModal(row)" class="btn btn-primary btn-sm" title="Modifier">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                      </svg>
-                    </button>
-                    <button (click)="showRowHistory(row.id)" class="btn btn-secondary btn-sm" title="Historique">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                    </button>
-                    <button (click)="deleteRow(row.id)" class="btn btn-danger btn-sm" title="Supprimer">
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                      </svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div *ngIf="rows.length === 0" class="text-center py-8">
-            <p class="text-gray-500">Aucune donnée trouvée</p>
-          </div>
-</div>
-        </div>
-
-        <!-- Pagination -->
-        <div *ngIf="totalPages > 1" class="pagination">
-          <button class="pagination-btn" [class.disabled]="currentPage === 0" 
-                  (click)="goToPage(0)" [disabled]="currentPage === 0">
-            Première
-          </button>
-          <button class="pagination-btn" [class.disabled]="currentPage === 0" 
-                  (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 0">
-            Précédente
-          </button>
-          
-          <div class="flex gap-1">
-            <button *ngFor="let page of getVisiblePages()" 
-                    class="pagination-btn"
-                    [class.active]="page === currentPage"
-                    (click)="goToPage(page)">
-              {{ page + 1 }}
+            <button (click)="goBack()" class="btn btn-secondary btn-sm mb-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              Retour
             </button>
-          </div>
-          
-          <button class="pagination-btn" [class.disabled]="currentPage === totalPages - 1" 
-                  (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages - 1">
-            Suivante
-          </button>
-          <button class="pagination-btn" [class.disabled]="currentPage === totalPages - 1" 
-                  (click)="goToPage(totalPages - 1)" [disabled]="currentPage === totalPages - 1">
-            Dernière
-          </button>
+            <h1 class="text-2xl font-bold text-gray-900">{{ file.fileName }}</h1>
+            <p class="text-gray-600">Téléchargé le {{ formatDate(file.uploadTimestamp) }}</p>
         </div>
-
-        <div class="text-center text-sm text-gray-500 mt-4">
-          Affichage de {{ (currentPage * pageSize) + 1 }} à {{ Math.min((currentPage + 1) * pageSize, totalElements) }} 
-          sur {{ totalElements }} lignes
+        <div class="btn-group" *ngIf="selectedSheet && activeView === 'data'">
+            <button (click)="isShowingGraphModal = true" class="btn btn-success">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+              Graphique
+            </button>
+            <button (click)="downloadCurrentSheet()" class="btn btn-primary">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              Télécharger
+            </button>
         </div>
-      </div>
     </div>
 
-    <!-- Edit Modal -->
-    <app-row-edit-modal 
-      *ngIf="isShowingEditModal"
-      [row]="selectedRow"
-      [columns]="columns"
-      [isEditMode]="isEditMode"
-      (closeModal)="closeEditModal()"
-      (saveRow)="saveRow($event)">
-    </app-row-edit-modal>
+    <div class="mb-6 border-b border-gray-200 slide-up" style="animation-delay: 0.1s;">
+        <nav class="tab-nav" aria-label="Tabs">
+            <button *ngFor="let sheet of sheets" (click)="selectSheet(sheet)"
+                [ngClass]="{
+                    'active': sheet.id === selectedSheet?.id && activeView === 'data'
+                }" class="tab-btn">
+                {{ sheet.sheetName }} ({{ sheet.totalRows }} lignes)
+            </button>
+            <button (click)="selectHistoryView()" *ngIf="selectedSheet"
+                [ngClass]="{
+                    'active': activeView === 'history'
+                }" class="tab-btn">
+                Historique de la feuille
+            </button>
+        </nav>
+    </div>
 
-    <!-- Graph Modal -->
-    <app-graph-modal 
-  *ngIf="isShowingGraphModal"
-  [fileId]="fileId"
-  [columns]="columns"
-  [sampleRows]="rows"  (closeModal)="isShowingGraphModal = false">
-</app-graph-modal>
-
-    <!-- Row History Modal -->
-    <div *ngIf="isShowingHistoryModal" class="modal-overlay" (click)="closeHistoryModal()">
-      <div class="modal" style="width: 90vw; max-width: 600px;">
-        <div class="modal-header">
-          <h3 class="modal-title">Historique de la ligne</h3>
-          <button class="modal-close" (click)="closeHistoryModal()">×</button>
-        </div>
-        <div class="modal-body">
-          <div *ngIf="loadingHistory" class="text-center py-4">
-            <div class="loading-spinner"></div>
-            <p class="text-gray-600 mt-2">Chargement de l'historique...</p>
-          </div>
-          
-          <div *ngIf="!loadingHistory && rowHistory.length === 0" class="text-center py-4">
-            <p class="text-gray-500">Aucun historique disponible</p>
-          </div>
-          
-          <div *ngIf="!loadingHistory && rowHistory.length > 0" class="space-y-4">
-            <div *ngFor="let history of rowHistory" class="border-l-4 pl-4 py-2"
-                 [class.border-green-500]="history.operationType === 'CREATE'"
-                 [class.border-blue-500]="history.operationType === 'UPDATE'"
-                 [class.border-red-500]="history.operationType === 'DELETE'">
-              <div class="flex justify-between items-center mb-2">
-                <span class="badge"
-                      [class.badge-success]="history.operationType === 'CREATE'"
-                      [class.badge-info]="history.operationType === 'UPDATE'"
-                      [class.badge-error]="history.operationType === 'DELETE'">
-                  {{ getOperationLabel(history.operationType) }}
-                </span>
-                <span class="text-sm text-gray-500">
-                  {{ formatDate(history.timestamp) }}
-                </span>
-              </div>
-              <div *ngIf="history.operationType === 'UPDATE'" class="text-sm">
-                <p class="text-gray-600 mb-1">Anciennes données:</p>
-                <pre class="bg-gray-100 p-2 rounded text-xs">{{ formatJson(history.oldData) }}</pre>
-                <p class="text-gray-600 mb-1 mt-2">Nouvelles données:</p>
-                <pre class="bg-gray-100 p-2 rounded text-xs">{{ formatJson(history.newData) }}</pre>
-              </div>
+    <div *ngIf="selectedSheet && activeView === 'data'" class="slide-up" style="animation-delay: 0.2s;">
+        <div class="card mb-6">
+            <div class="flex flex-col sm:flex-row gap-4 items-center">
+                <div class="flex-1 w-full">
+                    <input type="text" class="form-control" placeholder="Rechercher dans les données..."
+                        [(ngModel)]="searchKeyword" (input)="onSearchInput()">
+                </div>
+                <div class="btn-group flex-wrap">
+                    <select class="form-control" [(ngModel)]="pageSize" (ngModelChange)="onSortOrPageSizeChange()">
+                        <option *ngFor="let size of pageSizes" [value]="size">{{ size }} lignes</option>
+                    </select>
+                    <select class="form-control" [(ngModel)]="sortField" (change)="onSortOrPageSizeChange()">
+                        <option value="">Trier par...</option>
+                        <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
+                    </select>
+                    <select class="form-control" [(ngModel)]="sortDirection" (change)="onSortOrPageSizeChange()">
+                        <option value="asc">Croissant</option>
+                        <option value="desc">Décroissant</option>
+                    </select>
+                    <button (click)="showAddModal()" class="btn btn-success">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                      </svg>
+                      Ajouter
+                    </button>
+                </div>
             </div>
-          </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" (click)="closeHistoryModal()">Fermer</button>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .w-3 { width: 0.75rem; }
-    .h-3 { height: 0.75rem; }
-    .w-4 { width: 1rem; }
-    .h-4 { height: 1rem; }
-    .flex-1 { flex: 1 1 0%; }
-    .space-y-4 > * + * { margin-top: 1rem; }
-    .overflow-x-auto { overflow-x: auto; }
-    .hover\\:bg-gray-50:hover { background-color: var(--gray-50); }
-    .border-l-4 { border-left-width: 4px; }
-    .pl-4 { padding-left: 1rem; }
-    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-    .border-green-500 { border-color: #10b981; }
-    .border-blue-500 { border-color: #3b82f6; }
-    .border-red-500 { border-color: #ef4444; }
-    .bg-gray-100 { background-color: var(--gray-100); }
-    .text-xs { font-size: 0.75rem; }
-    
-    @media (max-width: 640px) {
-      .flex-col { flex-direction: column; }
-      .sm\\:flex-row { flex-direction: row; }
-    }
 
-    pre {
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-      .table-container {
-  /* Définit une hauteur maximale relative à la hauteur de la fenêtre du navigateur (60% de la hauteur visible). */
-  /* Vous pouvez aussi utiliser une valeur fixe comme 500px. */
-  max-height: 60vh;
-  
-  /* Active le défilement vertical (scrollbar) si le contenu de la table dépasse la max-height. */
+        <div *ngIf="loadingRows" class="text-center py-8">
+            <div class="loading-spinner" style="width: 2rem; height: 2rem;"></div>
+            <p class="text-gray-600 mt-2">Chargement des données...</p>
+        </div>
+
+        <div *ngIf="!loadingRows" class="card">
+            <div class="table-container">
+                <div class="overflow-x-auto">
+                    <table class="table" *ngIf="rows.length > 0">
+                        <thead>
+                            <tr>
+                                <th *ngFor="let column of columns.slice(0, maxVisibleColumns)" [title]="column">
+                                  {{ column.length > 15 ? column.substring(0, 15) + '...' : column }}
+                                </th>
+                                <th *ngIf="columns.length > maxVisibleColumns" class="text-center">
+                                  +{{ columns.length - maxVisibleColumns }}
+                                </th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let row of rows">
+                                <td *ngFor="let column of columns.slice(0, maxVisibleColumns)" [title]="row.data[column]">
+                                  {{ truncateText(row.data[column], 20) }}
+                                </td>
+                                <td *ngIf="columns.length > maxVisibleColumns" class="text-center">
+                                  <button (click)="showEditModal(row)" class="btn btn-outline btn-sm">Voir</button>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button (click)="showEditModal(row)" class="btn btn-primary btn-sm" title="Modifier">
+                                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                          </svg>
+                                        </button>
+                                        <button (click)="deleteRow(row.id)" class="btn btn-danger btn-sm" title="Supprimer">
+                                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                          </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div *ngIf="rows.length === 0" class="text-center py-8">
+                    <div class="mb-4">
+                      <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                      </svg>
+                    </div>
+                    <p class="text-gray-500">Aucune donnée trouvée pour les critères actuels.</p>
+                </div>
+            </div>
+            <div *ngIf="totalPages > 1" class="pagination mt-4">
+                <button class="pagination-btn" [disabled]="currentPage === 0" (click)="goToPage(0)">Première</button>
+                <button class="pagination-btn" [disabled]="currentPage === 0" (click)="goToPage(currentPage - 1)">Préc.</button>
+                <span class="px-3 py-2 text-gray-700">Page {{ currentPage + 1 }} / {{ totalPages }}</span>
+                <button class="pagination-btn" [disabled]="currentPage >= totalPages - 1" (click)="goToPage(currentPage + 1)">Suiv.</button>
+                <button class="pagination-btn" [disabled]="currentPage >= totalPages - 1" (click)="goToPage(totalPages - 1)">Dernière</button>
+            </div>
+        </div>
+    </div>
+
+    <div *ngIf="activeView === 'history'" class="slide-up" style="animation-delay: 0.2s;">
+        <div class="card">
+            <h3 class="card-title mb-4">Dernières modifications pour la feuille "{{ selectedSheet?.sheetName }}"</h3>
+            <div *ngIf="loadingHistory" class="text-center py-8">
+                <div class="loading-spinner"></div>
+            </div>
+            <div *ngIf="!loadingHistory && sheetHistory.length === 0" class="text-center py-8">
+                <div class="mb-4">
+                  <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <p class="text-gray-500">Aucun historique de modification pour cette feuille.</p>
+            </div>
+            <div *ngIf="!loadingHistory && sheetHistory.length > 0" class="space-y-4">
+                <div *ngFor="let item of sheetHistory" class="history-item"
+                     [class.create]="item.operationType === 'CREATE'"
+                     [class.update]="item.operationType === 'UPDATE'"
+                     [class.delete]="item.operationType === 'DELETE'">
+                    <div class="flex items-center justify-between">
+                        <span class="badge"
+                            [class.badge-success]="item.operationType === 'CREATE'"
+                            [class.badge-info]="item.operationType === 'UPDATE'"
+                            [class.badge-error]="item.operationType === 'DELETE'">
+                            {{ getOperationLabel(item.operationType) }}
+                        </span>
+                        <span class="text-xs text-gray-500">{{ formatDate(item.timestamp) }}</span>
+                    </div>
+                    <p class="text-sm text-gray-700 mt-1">Ligne ID: <strong>{{ item.rowEntityId }}</strong></p>
+                    <div *ngIf="item.operationType === 'UPDATE'">
+                        <details class="text-xs mt-1 cursor-pointer">
+                            <summary class="hover:text-gray-800">Voir les détails</summary>
+                            <div class="grid grid-cols-2 gap-2 mt-2">
+                                <div>
+                                    <p class="font-semibold">Avant :</p>
+                                    <pre class="bg-gray-100 p-2 rounded text-xs">{{ formatJson(item.oldData) }}</pre>
+                                </div>
+                                <div>
+                                    <p class="font-semibold">Après :</p>
+                                    <pre class="bg-red-50 p-2 rounded text-xs">{{ formatJson(item.newData) }}</pre>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                <div *ngIf="historyTotalPages > 1" class="pagination">
+                    <button class="pagination-btn" [disabled]="historyCurrentPage === 0" (click)="goToHistoryPage(historyCurrentPage - 1)">Précédente</button>
+                    <span class="px-3 py-2 text-gray-700">Page {{ historyCurrentPage + 1 }} / {{ historyTotalPages }}</span>
+                    <button class="pagination-btn" [disabled]="historyCurrentPage >= historyTotalPages - 1" (click)="goToHistoryPage(historyCurrentPage + 1)">Suivante</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="loading" class="text-center py-16">
+    <div class="loading-spinner" style="width: 3rem; height: 3rem;"></div>
+    <p class="text-gray-600 mt-4 text-lg">Chargement du fichier et de ses feuilles...</p>
+</div>
+
+<app-row-edit-modal *ngIf="isShowingEditModal" [row]="selectedRow" [columns]="columns" [isEditMode]="isEditMode"
+    (closeModal)="closeEditModal()" (saveRow)="saveRow($event)">
+</app-row-edit-modal>
+
+<app-graph-modal *ngIf="isShowingGraphModal && selectedSheet" 
+    [sheetId]="selectedSheet.id" 
+    [columns]="columns" 
+    [sampleRows]="rows"
+    (closeModal)="isShowingGraphModal = false">
+</app-graph-modal>
+`,
+  styles: [`
+.space-x-8 > :not([hidden]) ~ :not([hidden]) {
+  margin-left: 2rem;
+}
+
+.table-container {
+  max-height: 65vh;
   overflow-y: auto;
 }
-  `]
+
+.w-4 { width: 1rem; }
+.h-4 { height: 1rem; }
+.w-12 { width: 3rem; }
+.h-12 { height: 3rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.overflow-x-auto { overflow-x: auto; }
+.flex-wrap { flex-wrap: wrap; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.grid { display: grid; }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gap-2 { gap: 0.5rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.bg-red-50 { background-color: #fef2f2; }
+.text-xs { font-size: 0.75rem; }
+`]
 })
 export class FileProcessingComponent implements OnInit {
   fileId!: number;
   file: FileEntity | null = null;
+  
+  sheets: SheetEntity[] = [];
+  selectedSheet: SheetEntity | null = null;
+
   rows: RowEntity[] = [];
   columns: string[] = [];
   
-  // Pagination
   currentPage = 0;
   totalPages = 0;
   totalElements = 0;
-  pageSize = 50; // Valeur par défaut
-  
-  // AJOUT : Options de taille de page disponibles
+  pageSize = 50;
   pageSizes: number[] = [25, 50, 100, 200];
-  // Search and sort
+  
   searchKeyword = '';
   sortField = '';
   sortDirection = 'asc';
   
-  // UI state
   loading = true;
-  maxVisibleColumns = 5;
+  loadingRows = false;
   
-  // Modals - renamed to avoid conflicts
   isShowingEditModal = false;
   isShowingGraphModal = false;
   isShowingHistoryModal = false;
+  
   selectedRow: RowEntity | null = null;
   isEditMode = false;
   rowHistory: ModificationHistory[] = [];
   loadingHistory = false;
   
-  // Debounce timer
-  private searchTimeout: any;
+  activeView: 'data' | 'history' = 'data';
+  sheetHistory: ModificationHistory[] = [];
+  historyCurrentPage = 0;
+  historyTotalPages = 0;
+  historyPageSize = 15;
+  maxVisibleColumns = 6;
 
-  // Make Math available in template
+  private searchTimeout: any;
   Math = Math;
 
   constructor(
@@ -344,248 +308,203 @@ export class FileProcessingComponent implements OnInit {
 
   ngOnInit() {
     this.fileId = Number(this.route.snapshot.params['id']);
-    this.loadFile();
-    this.loadRows();
+    this.loadFileAndSheets();
   }
 
-  onPageSizeChange(): void {
-    this.currentPage = 0; // Toujours revenir à la première page
-    this.loadRows();
-  }
-
-  loadFile() {
+  loadFileAndSheets() {
+    this.loading = true;
     this.fileService.getFile(this.fileId).subscribe({
-      next: (file) => {
+      next: (file: FileEntity) => {
         this.file = file;
-        if (file.headersJson) {
-          this.columns = JSON.parse(file.headersJson);
-        }
+        this.fileService.getSheets(this.fileId).subscribe({
+          next: (sheets: SheetEntity[]) => {
+            this.sheets = sheets;
+            if (this.sheets.length > 0) {
+              this.selectSheet(this.sheets[0]);
+            } else {
+              this.loading = false;
+            }
+          },
+          error: (error: any) => {
+            console.error('Erreur chargement feuilles:', error);
+            this.loading = false;
+          }
+        });
       },
-      error: (error) => {
-        console.error('Erreur lors du chargement du fichier:', error);
+      error: (error: any) => {
+        console.error('Erreur chargement fichier:', error);
+        this.loading = false;
         this.router.navigate(['/']);
       }
     });
   }
 
-  loadRows() {
-    this.loading = true;
+  selectSheet(sheet: SheetEntity) {
+    if (this.selectedSheet?.id === sheet.id) return;
+    this.activeView = 'data';
+    this.selectedSheet = sheet;
+    this.columns = sheet.headersJson ? JSON.parse(sheet.headersJson) : [];
+    this.currentPage = 0;
+    this.sortField = '';
+    this.sortDirection = 'asc';
+    this.searchKeyword = '';
+    this.loadRowsForSelectedSheet();
+  }
+
+  loadRowsForSelectedSheet() {
+    if (!this.selectedSheet) return;
+
+    this.loadingRows = true;
     
-    let sort = '';
+    let sort: string | undefined;
     if (this.sortField) {
-      sort = `${this.sortField},${this.sortDirection}`;
+      sort = `data.${this.sortField},${this.sortDirection}`;
     }
-    
-    this.rowService.getRowsForFile(
-      this.fileId,
+
+    this.rowService.getRowsForSheet(
+      this.selectedSheet.id,
       this.currentPage,
       this.pageSize,
       this.searchKeyword || undefined,
-      sort || undefined
+      sort
     ).subscribe({
       next: (response: PageResponse<RowEntity>) => {
         this.rows = response.content;
         this.totalPages = response.totalPages;
         this.totalElements = response.totalElements;
-        this.loading = false;
+        this.loadingRows = false;
+        if(this.loading) this.loading = false;
       },
-      error: (error) => {
-        console.error('Erreur lors du chargement des lignes:', error);
+      error: (error: any) => {
+        console.error('Erreur chargement lignes:', error);
+        this.loadingRows = false;
         this.loading = false;
       }
     });
   }
-
-  onSearchInput(event: any) {
+  
+  onSearchInput(): void {
     clearTimeout(this.searchTimeout);
     this.searchTimeout = setTimeout(() => {
-      this.search();
+        this.currentPage = 0;
+        this.loadRowsForSelectedSheet();
     }, 500);
   }
 
-  search() {
+  onSortOrPageSizeChange() {
     this.currentPage = 0;
-    this.loadRows();
-  }
-
-  onSortChange() {
-    this.currentPage = 0;
-    this.loadRows();
+    this.loadRowsForSelectedSheet();
   }
 
   goToPage(page: number) {
     if (page >= 0 && page < this.totalPages) {
       this.currentPage = page;
-      this.loadRows();
+      this.loadRowsForSelectedSheet();
     }
   }
 
-  getVisiblePages(): number[] {
-    const delta = 2;
-    const range = [];
-    const rangeWithDots = [];
-    
-    for (let i = Math.max(2, this.currentPage - delta);
-         i <= Math.min(this.totalPages - 2, this.currentPage + delta);
-         i++) {
-      range.push(i);
-    }
-    
-    if (this.currentPage - delta > 2) {
-      rangeWithDots.push(0, 1, -1);
-    } else {
-      rangeWithDots.push(0, 1);
-    }
-    
-    rangeWithDots.push(...range);
-    
-    if (this.currentPage + delta < this.totalPages - 2) {
-      rangeWithDots.push(-1, this.totalPages - 2, this.totalPages - 1);
-    } else {
-      rangeWithDots.push(this.totalPages - 2, this.totalPages - 1);
-    }
-    
-    return rangeWithDots.filter((v, i, a) => a.indexOf(v) === i && v >= 0);
+  selectHistoryView() {
+    this.activeView = 'history';
+    this.historyCurrentPage = 0;
+    this.loadHistoryForSelectedSheet();
   }
 
-  showAddModal() {
-    this.selectedRow = null;
-    this.isEditMode = false;
-    this.isShowingEditModal = true;
-  }
-
-  showEditModal(row: RowEntity) {
-    this.selectedRow = row;
-    this.isEditMode = true;
-    this.isShowingEditModal = true;
-  }
-
-  closeEditModal() {
-    this.isShowingEditModal = false;
-    this.selectedRow = null;
-  }
-
-  saveRow(row: RowEntity) {
-    if (this.isEditMode && row.id) {
-      this.rowService.updateRow(row.id, row).subscribe({
-        next: () => {
-          this.closeEditModal();
-          this.loadRows();
+  loadHistoryForSelectedSheet() {
+    if (!this.selectedSheet) return;
+    this.loadingHistory = true;
+    this.rowService.getHistoryForSheet(this.selectedSheet.id, this.historyCurrentPage, this.historyPageSize)
+      .subscribe({
+        next: (response) => {
+          this.sheetHistory = response.content;
+          this.historyTotalPages = response.totalPages;
+          this.loadingHistory = false;
         },
-        error: (error) => {
-          console.error('Erreur lors de la modification:', error);
+        error: (err: any) => {
+          console.error("Erreur lors du chargement de l'historique de la feuille", err);
+          this.loadingHistory = false;
         }
       });
-    } else {
-      this.rowService.createRow(this.fileId, row).subscribe({
-        next: () => {
-          this.closeEditModal();
-          this.loadRows();
-          this.loadFile(); // Refresh file stats
-        },
-        error: (error) => {
-          console.error('Erreur lors de la création:', error);
-        }
-      });
+  }
+
+  goToHistoryPage(page: number) {
+    if (page >= 0 && page < this.historyTotalPages) {
+      this.historyCurrentPage = page;
+      this.loadHistoryForSelectedSheet();
     }
+  }
+
+  saveRow(row: Partial<RowEntity>) {
+    if (!this.selectedSheet) return;
+
+    const action = this.isEditMode && row.id
+      ? this.rowService.updateRow(row.id, row)
+      : this.rowService.createRow(this.selectedSheet.id, row);
+
+    action.subscribe({
+      next: () => {
+        this.closeEditModal();
+        this.loadRowsForSelectedSheet();
+      },
+      error: (error: any) => console.error('Erreur lors de la sauvegarde:', error)
+    });
   }
 
   deleteRow(rowId: number) {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette ligne ?')) {
       this.rowService.deleteRow(rowId).subscribe({
         next: () => {
-          this.loadRows();
-          this.loadFile(); // Refresh file stats
+          this.loadRowsForSelectedSheet();
         },
-        error: (error) => {
-          console.error('Erreur lors de la suppression:', error);
-        }
+        error: (error: any) => console.error('Erreur lors de la suppression:', error)
       });
     }
   }
 
-  showRowHistory(rowId: number) {
-    this.loadingHistory = true;
-    this.isShowingHistoryModal = true;
-    
-    this.rowService.getRowHistory(rowId).subscribe({
-      next: (history) => {
-        this.rowHistory = history;
-        this.loadingHistory = false;
-      },
-      error: (error) => {
-        console.error('Erreur lors du chargement de l\'historique:', error);
-        this.loadingHistory = false;
-      }
-    });
-  }
-
-  closeHistoryModal() {
-    this.isShowingHistoryModal = false;
-    this.rowHistory = [];
-  }
-
-  showRowDetails(row: RowEntity) {
-    this.selectedRow = row;
-    this.isEditMode = true;
-    this.isShowingEditModal = true;
-  }
-
-  downloadFile() {
-    if (this.file) {
-      this.fileService.downloadFile(this.file.fileName, this.searchKeyword || undefined).subscribe({
-        next: (blob) => {
+  downloadCurrentSheet() {
+    if (!this.selectedSheet || !this.file) return;
+    this.fileService.downloadSheet(this.selectedSheet.id, this.selectedSheet.sheetName, this.searchKeyword)
+      .subscribe({
+        next: (blob: Blob) => {
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = this.file!.fileName;
+          a.download = `${this.file?.fileName} - ${this.selectedSheet?.sheetName}.xlsx`;
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
           document.body.removeChild(a);
         },
-        error: (error) => {
+        error: (error: any) => {
           console.error('Erreur lors du téléchargement:', error);
         }
       });
+  }
+
+  goBack() { this.router.navigate(['/']); }
+  formatDate(dateString: string): string { return new Date(dateString).toLocaleString('fr-FR'); }
+  showAddModal() { this.selectedRow = null; this.isEditMode = false; this.isShowingEditModal = true; }
+  showEditModal(row: RowEntity) { this.selectedRow = row; this.isEditMode = true; this.isShowingEditModal = true; }
+  closeEditModal() { this.isShowingEditModal = false; this.selectedRow = null; }
+  truncateText(text: any, maxLength: number): string {
+    if (typeof text !== 'string') {
+      text = text !== undefined && text !== null ? String(text) : '';
+    }
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  }
+  getOperationLabel(operation: string): string {
+    switch (operation) {
+      case 'CREATE': return 'Création';
+      case 'UPDATE': return 'Modification';
+      case 'DELETE': return 'Suppression';
+      default: return operation;
     }
   }
-
-  goBack() {
-    this.router.navigate(['/']);
-  }
-
-  truncateText(text: any, maxLength: number): string {
-    if (!text) return '';
-    const str = text.toString();
-    return str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
-  }
-
-  formatDate(dateString: string): string {
-    return new Date(dateString).toLocaleDateString('fr-FR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
   formatJson(jsonString: string | null): string {
-    if (!jsonString) return '';
+    if (!jsonString) return '(vide)';
     try {
       return JSON.stringify(JSON.parse(jsonString), null, 2);
     } catch {
       return jsonString;
-    }
-  }
-
-  getOperationLabel(operation: string): string {
-    switch (operation) {
-      case 'CREATE': return 'Créé';
-      case 'UPDATE': return 'Modifié';
-      case 'DELETE': return 'Supprimé';
-      default: return operation;
     }
   }
 }

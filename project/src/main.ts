@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { provideAnimations } from '@angular/platform-browser/animations';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { routes } from './app/app.routes';
@@ -11,12 +12,12 @@ import { routes } from './app/app.routes';
   standalone: true,
   imports: [CommonModule, RouterOutlet],
   template: `
-    <div class="min-h-screen bg-gray-50">
-      <header class="bg-white shadow-sm border-b border-gray-200">
+    <div class="min-h-screen bg-gray-50 flex flex-col page-transition">
+      <header class="app-header bg-white shadow-sm border-b border-gray-200">
         <div class="container">
           <div class="flex items-center justify-between py-4">
             <div class="flex items-center">
-              <div class="w-8 h-8 bg-primary-blue rounded-lg flex items-center justify-center mr-3">
+              <div class="w-8 h-8 bg-primary-blue rounded-lg flex items-center justify-center mr-3 icon-bounce">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -29,7 +30,7 @@ import { routes } from './app/app.routes';
             </div>
             <div class="hidden sm:flex items-center space-x-4">
               <div class="flex items-center text-sm text-gray-600">
-                <div class="w-3 h-3 bg-accent-green rounded-full mr-2"></div>
+                <div class="w-3 h-3 bg-accent-green rounded-full mr-2 pulse"></div>
                 Système opérationnel
               </div>
             </div>
@@ -37,11 +38,11 @@ import { routes } from './app/app.routes';
         </div>
       </header>
 
-      <main>
+      <main class="flex-grow overflow-y-auto">
         <router-outlet></router-outlet>
       </main>
 
-      <footer class="bg-white border-t border-gray-200 mt-16">
+      <footer class="bg-white border-t border-gray-200">
         <div class="container py-8">
           <div class="flex flex-col md:flex-row justify-between items-center">
             <div class="text-gray-600 text-sm mb-4 md:mb-0">
@@ -89,6 +90,41 @@ import { routes } from './app/app.routes';
       .md\\:flex-row { flex-direction: row; }
       .md\\:mb-0 { margin-bottom: 0; }
     }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      width: 100%;
+      backdrop-filter: blur(10px);
+      background-color: rgba(255, 255, 255, 0.9);
+    }
+
+    .flex-grow {
+      flex-grow: 1;
+    }
+
+    .overflow-y-auto {
+      overflow-y: auto;
+    }
+
+    .icon-bounce {
+      animation: iconBounce 2s infinite;
+    }
+
+    @keyframes iconBounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
   `]
 })
 export class App {}
@@ -96,6 +132,7 @@ export class App {}
 bootstrapApplication(App, {
   providers: [
     provideRouter(routes),
-    provideHttpClient(withInterceptorsFromDi())
+    provideHttpClient(withInterceptorsFromDi()),
+    provideAnimations()
   ]
 });

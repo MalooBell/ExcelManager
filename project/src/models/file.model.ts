@@ -1,9 +1,10 @@
+import { SheetEntity } from './sheet.model';
+
 export interface FileEntity {
   id: number;
   fileName: string;
   uploadTimestamp: string;
-  headersJson: string;
-  totalRows: number;
+  sheets: SheetEntity[];
 }
 
 export interface UploadResponse {

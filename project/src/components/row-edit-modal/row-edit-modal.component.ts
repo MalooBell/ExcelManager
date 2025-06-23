@@ -70,12 +70,6 @@ import { RowEntity } from '../../models/row.model';
     .gap-4 {
       gap: var(--spacing-4);
     }
-    .max-h-80 {
-      max-height: 20rem;
-    }
-    .overflow-y-auto {
-      overflow-y: auto;
-    }
 
     @media (min-width: 768px) {
       .md\\:grid-cols-2 {
@@ -107,7 +101,6 @@ export class RowEditModalComponent implements OnInit {
         data: { ...this.row.data }
       };
     } else {
-      // Initialize with empty data for all columns
       this.editableRow = {
         id: 0,
         sheetIndex: 0,

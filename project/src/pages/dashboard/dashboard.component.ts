@@ -1,17 +1,19 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { FileUploadComponent } from '../../components/file-upload/file-upload.component';
 import { FileListComponent } from '../../components/file-list/file-list.component';
+import { HistoryDetailModalComponent } from '../../components/history-detail-modal/history-detail-modal.component';
 import { RowService } from '../../services/row.service';
 import { ModificationHistory } from '../../models/row.model';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FileUploadComponent, FileListComponent],
+  imports: [CommonModule, FileUploadComponent, FileListComponent, HistoryDetailModalComponent],
   template: `
-    <div class="container py-8">
-      <div class="mb-8">
+    <div class="container py-8 page-transition">
+      <div class="mb-8 slide-up">
         <h1 class="text-3xl font-bold text-gray-900 mb-2">
           Gestionnaire de fichiers Excel
         </h1>
@@ -22,7 +24,7 @@ import { ModificationHistory } from '../../models/row.model';
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Upload Section -->
-        <div class="lg:col-span-2">
+        <div class="lg:col-span-2 slide-up" style="animation-delay: 0.1s;">
           <div class="mb-8">
             <h2 class="text-xl font-semibold mb-4">Télécharger un fichier Excel</h2>
             <app-file-upload (uploadSuccess)="onUploadSuccess()"></app-file-upload>
@@ -35,90 +37,108 @@ import { ModificationHistory } from '../../models/row.model';
         </div>
 
         <!-- History Section -->
-        <div class="lg:col-span-1">
-  <div class="card h-full flex flex-col">
-    <div class="card-header">
-      <h3 class="card-title">Historique des modifications</h3>
-    </div>
-
-    <div class="history-list-container">
-        <div *ngIf="loadingHistory" class="text-center py-8">
-            <div class="loading-spinner"></div>
-            <p class="text-gray-600 mt-2">Chargement...</p>
-        </div>
-
-        <div *ngIf="!loadingHistory && history.length === 0" class="text-center py-8">
-            <p class="text-gray-500">Aucune modification récente</p>
-        </div>
-
-        <div *ngIf="!loadingHistory && history.length > 0" class="space-y-3">
-            <div *ngFor="let item of history.slice(0, 10)" class="border-l-4 pl-4 py-2"
-                 [class.border-green-500]="item.operationType === 'CREATE'"
-                 [class.border-blue-500]="item.operationType === 'UPDATE'"
-                 [class.border-red-500]="item.operationType === 'DELETE'">
-                <div class="flex items-center justify-between">
-                  <span class="badge" 
-                        [class.badge-success]="item.operationType === 'CREATE'"
-                        [class.badge-info]="item.operationType === 'UPDATE'"
-                        [class.badge-error]="item.operationType === 'DELETE'">
-                    {{ getOperationLabel(item.operationType) }}
-                  </span>
-                  <span class="text-xs text-gray-500">
-                    {{ formatDate(item.timestamp) }}
-                  </span>
-                </div>
-                <p class="text-sm text-gray-600 mt-1">
-                  Ligne ID: {{ item.rowEntityId }}
-                </p>
+        <div class="lg:col-span-1 slide-up" style="animation-delay: 0.2s;">
+          <div class="card h-full flex flex-col">
+            <div class="card-header">
+              <h3 class="card-title">Historique des modifications</h3>
             </div>
-        </div>
-    </div>
 
-    <div *ngIf="history.length > 10" class="text-center pt-4 border-t mt-auto">
-      <button class="btn btn-outline btn-sm" (click)="loadAllHistory()">
-        Voir tout l'historique
-      </button>
-    </div>
-  </div>
-</div>
+            <div class="history-list-container">
+              <div *ngIf="loadingHistory" class="text-center py-8">
+                <div class="loading-spinner"></div>
+                <p class="text-gray-600 mt-2">Chargement...</p>
+              </div>
+
+              <div *ngIf="!loadingHistory && history.length === 0" class="text-center py-8">
+                <div class="mb-4">
+                  <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                  </svg>
+                </div>
+                <p class="text-gray-500">Aucune modification récente</p>
+              </div>
+
+              <div *ngIf="!loadingHistory && history.length > 0" class="space-y-3">
+                <div *ngFor="let item of history.slice(0, 10)" 
+                     class="history-item"
+                     [class.create]="item.operationType === 'CREATE'"
+                     [class.update]="item.operationType === 'UPDATE'"
+                     [class.delete]="item.operationType === 'DELETE'"
+                     (click)="showHistoryDetails(item)">
+                  <div class="flex items-center justify-between">
+                    <span class="badge" 
+                          [class.badge-success]="item.operationType === 'CREATE'"
+                          [class.badge-info]="item.operationType === 'UPDATE'"
+                          [class.badge-error]="item.operationType === 'DELETE'">
+                      {{ getOperationLabel(item.operationType) }}
+                    </span>
+                    <span class="text-xs text-gray-500">
+                      {{ formatDate(item.timestamp) }}
+                    </span>
+                  </div>
+                  <p class="text-sm text-gray-600 mt-1">
+                    <strong>{{ item.sheetName || 'Feuille inconnue' }}</strong>
+                  </p>
+                  <p class="text-xs text-gray-500">
+                    Ligne ID: {{ item.rowEntityId }}
+                  </p>
+                  <div class="flex items-center justify-between mt-2">
+                    <span class="text-xs text-gray-400">Cliquez pour voir les détails</span>
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="history.length > 10" class="text-center pt-4 border-t mt-auto">
+              <button class="btn btn-outline btn-sm" (click)="loadAllHistory()">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+                Voir tout l'historique
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- History Detail Modal -->
+    <app-history-detail-modal 
+      *ngIf="selectedHistoryItem"
+      [historyItem]="selectedHistoryItem"
+      (closeModal)="closeHistoryDetails()">
+    </app-history-detail-modal>
   `,
   styles: [`
-  .file-list-container {
-  /* Définit une hauteur maximale. Ajustez cette valeur selon vos besoins. */
-  max-height: 500px;
-  
-  /* Active le défilement vertical (une scrollbar) si le contenu dépasse la max-height */
-  overflow-y: auto;
-  
-  /* Esthétique : ajoute une bordure pour mieux visualiser le conteneur */
-  border: 1px solid var(--gray-200);
-  border-radius: var(--border-radius-lg);
-}
+    .file-list-container {
+      max-height: 500px;
+      overflow-y: auto;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--border-radius-lg);
+    }
 
-/* Style pour le conteneur de la liste d'historique */
-.history-list-container {
-    /* Fait en sorte que ce conteneur grandisse pour remplir l'espace disponible dans la carte */
-    flex-grow: 1;
-    
-    /* Active le défilement si nécessaire */
-    overflow-y: auto;
-    
-    /* Un peu de marge à droite pour ne pas que la scrollbar colle au texte */
-    padding-right: 0.5rem;
-}
+    .history-list-container {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
 
-/* Utilitaires flexbox que nous avons ajoutés au HTML */
-.h-full {
-    height: 100%;
-}
-.flex-col {
-    flex-direction: column;
-}
-.mt-auto {
-    margin-top: auto;
-}
+    .h-full {
+      height: 100%;
+    }
+    .flex-col {
+      flex-direction: column;
+    }
+    .mt-auto {
+      margin-top: auto;
+    }
     .grid {
       display: grid;
     }
@@ -131,26 +151,18 @@ import { ModificationHistory } from '../../models/row.model';
     .space-y-3 > * + * {
       margin-top: 0.75rem;
     }
-    .border-l-4 {
-      border-left-width: 4px;
-    }
-    .pl-4 {
-      padding-left: 1rem;
-    }
-    .py-2 {
-      padding-top: 0.5rem;
-      padding-bottom: 0.5rem;
-    }
     .pt-4 {
       padding-top: 1rem;
     }
     .border-t {
       border-top: 1px solid var(--gray-200);
     }
-    .border-green-500 { border-color: #10b981; }
-    .border-blue-500 { border-color: #3b82f6; }
-    .border-red-500 { border-color: #ef4444; }
     .text-xs { font-size: 0.75rem; }
+    .w-4 { width: 1rem; }
+    .h-4 { height: 1rem; }
+    .w-12 { width: 3rem; }
+    .h-12 { height: 3rem; }
+    .mx-auto { margin-left: auto; margin-right: auto; }
 
     @media (min-width: 1024px) {
       .lg\\:grid-cols-3 {
@@ -168,8 +180,12 @@ import { ModificationHistory } from '../../models/row.model';
 export class DashboardComponent implements OnInit {
   history: ModificationHistory[] = [];
   loadingHistory = true;
+  selectedHistoryItem: ModificationHistory | null = null;
 
-  constructor(private rowService: RowService) {}
+  constructor(
+    private rowService: RowService,
+    private router: Router
+  ) {}
 
   @ViewChild(FileListComponent) fileList!: FileListComponent;
 
@@ -178,12 +194,9 @@ export class DashboardComponent implements OnInit {
   }
 
   onUploadSuccess() {
-    // Appelle directement la méthode publique du composant enfant
     if (this.fileList) {
       this.fileList.loadFiles();
     }
-    
-    // Rafraîchit l'historique comme avant
     this.loadHistory();
   }
 
@@ -201,9 +214,16 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  showHistoryDetails(historyItem: ModificationHistory) {
+    this.selectedHistoryItem = historyItem;
+  }
+
+  closeHistoryDetails() {
+    this.selectedHistoryItem = null;
+  }
+
   loadAllHistory() {
-    // Navigate to full history page or show modal
-    console.log('Load all history - to be implemented');
+    this.router.navigate(['/history']);
   }
 
   getOperationLabel(operation: string): string {

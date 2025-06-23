@@ -11,8 +11,8 @@ import { HttpParams } from '@angular/common/http';
 export class RowService {
   constructor(private api: ApiService) {}
 
-  getRowsForFile(
-    fileId: number,
+  getRowsForSheet(
+    sheetId: number,
     page: number = 0,
     size: number = 50,
     keyword?: string,
@@ -25,31 +25,15 @@ export class RowService {
     if (keyword) params = params.set('keyword', keyword);
     if (sort) params = params.set('sort', sort);
     
-    return this.api.get<PageResponse<RowEntity>>(`/rows/file/${fileId}`, params);
-  }
-
-  searchRows(
-    fileName?: string,
-    keyword?: string,
-    page: number = 0,
-    size: number = 50
-  ): Observable<PageResponse<RowEntity>> {
-    let params = new HttpParams()
-      .set('page', page.toString())
-      .set('size', size.toString());
-    
-    if (fileName) params = params.set('fileName', fileName);
-    if (keyword) params = params.set('keyword', keyword);
-    
-    return this.api.get<PageResponse<RowEntity>>('/rows', params);
+    return this.api.get<PageResponse<RowEntity>>(`/rows/sheet/${sheetId}`, params);
   }
 
   getRow(id: number): Observable<RowEntity> {
     return this.api.get<RowEntity>(`/rows/${id}`);
   }
 
-  createRow(fileId: number, row: Partial<RowEntity>): Observable<RowEntity> {
-    return this.api.post<RowEntity>(`/rows/file/${fileId}`, row);
+  createRow(sheetId: number, row: Partial<RowEntity>): Observable<RowEntity> {
+    return this.api.post<RowEntity>(`/rows/sheet/${sheetId}`, row);
   }
 
   updateRow(id: number, row: Partial<RowEntity>): Observable<RowEntity> {
@@ -60,11 +44,24 @@ export class RowService {
     return this.api.delete<void>(`/rows/${id}`);
   }
 
+  getHistoryForSheet(sheetId: number, page: number, size: number): Observable<PageResponse<ModificationHistory>> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+    return this.api.get<PageResponse<ModificationHistory>>(`/history/sheet/${sheetId}`, params);
+  }
+
   getRowHistory(rowId: number): Observable<ModificationHistory[]> {
     return this.api.get<ModificationHistory[]>(`/history/row/${rowId}`);
   }
 
   getAllHistory(): Observable<ModificationHistory[]> {
     return this.api.get<ModificationHistory[]>('/history/all');
+  }
+
+  // Nouvelle méthode pour récupérer les détails d'un historique par sheetName
+  getHistoryBySheetName(sheetName: string): Observable<ModificationHistory[]> {
+    const params = new HttpParams().set('sheetName', sheetName);
+    return this.api.get<ModificationHistory[]>('/history/bySheetName', params);
   }
 }
