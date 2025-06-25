@@ -94,7 +94,7 @@ import { ModificationHistory } from '../../models/row.model';
             </div>
 
             <div *ngIf="history.length > 10" class="text-center pt-4 border-t mt-auto">
-              <button class="btn btn-outline btn-sm" (click)="loadAllHistory()">
+              <!-- <button class="btn btn-outline btn-sm" (click)="loadAllHistory()">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                         d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -102,7 +102,7 @@ import { ModificationHistory } from '../../models/row.model';
                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                 </svg>
                 Voir tout l'historique
-              </button>
+              </button>  -->
             </div>
           </div>
         </div>
@@ -126,7 +126,8 @@ import { ModificationHistory } from '../../models/row.model';
 
     .history-list-container {
       flex-grow: 1;
-      overflow-y: auto;
+      max-height: 700px; /* NOUVEAU: Hauteur maximale pour la liste d'historique */
+      overflow-y: auto;  /* NOUVEAU: Ajoute une barre de défilement si nécessaire */
       padding-right: 0.5rem;
     }
 

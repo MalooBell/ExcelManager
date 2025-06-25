@@ -69,24 +69,29 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
                         [(ngModel)]="searchKeyword" (input)="onSearchInput()">
                 </div>
                 <div class="btn-group flex-wrap">
-                    <select class="form-control" [(ngModel)]="pageSize" (ngModelChange)="onSortOrPageSizeChange()">
-                        <option *ngFor="let size of pageSizes" [value]="size">{{ size }} lignes</option>
-                    </select>
-                    <select class="form-control" [(ngModel)]="sortField" (change)="onSortOrPageSizeChange()">
-                        <option value="">Trier par...</option>
-                        <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
-                    </select>
-                    <select class="form-control" [(ngModel)]="sortDirection" (change)="onSortOrPageSizeChange()">
-                        <option value="asc">Croissant</option>
-                        <option value="desc">Décroissant</option>
-                    </select>
-                    <button (click)="showAddModal()" class="btn btn-success">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                      </svg>
-                      Ajouter
-                    </button>
-                </div>
+    
+    
+    <div class="sort-controls">
+      <select class="form-control form-control-sm" [(ngModel)]="pageSize" (ngModelChange)="onSortOrPageSizeChange()">
+        <option *ngFor="let size of pageSizes" [value]="size">{{ size }} lignes</option>
+    </select>
+        <select class="form-control form-control-sm" [(ngModel)]="sortField" (change)="onSortOrPageSizeChange()">
+            <option value="">Trier par...</option>
+            <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
+        </select>
+        <select class="form-control form-control-sm" [(ngModel)]="sortDirection" (change)="onSortOrPageSizeChange()">
+            <option value="asc">Croissant</option>
+            <option value="desc">Décroissant</option>
+        </select>
+    </div>
+
+    <button (click)="showAddModal()" class="btn btn-success">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      Ajouter
+    </button>
+</div>
             </div>
         </div>
 
@@ -148,7 +153,7 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
                     <p class="text-gray-500">Aucune donnée trouvée pour les critères actuels.</p>
                 </div>
             </div>
-            <div *ngIf="totalPages > 1" class="pagination mt-4">
+            <div *ngIf="totalPages > 1" class="pagination pagination-sm mt-4">
                 <button class="pagination-btn" [disabled]="currentPage === 0" (click)="goToPage(0)">Première</button>
                 <button class="pagination-btn" [disabled]="currentPage === 0" (click)="goToPage(currentPage - 1)">Préc.</button>
                 <span class="px-3 py-2 text-gray-700">Page {{ currentPage + 1 }} / {{ totalPages }}</span>
@@ -239,6 +244,36 @@ import { GraphModalComponent } from '../../components/graph-modal/graph-modal.co
   max-height: 65vh;
   overflow-y: auto;
 }
+
+.table-container thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--gray-100); /* Fond pour cacher le contenu qui défile dessous */
+    z-index: 10;
+  }
+
+  .pagination.pagination-sm .pagination-btn {
+      padding: var(--spacing-2) var(--spacing-3); /* Moins de padding */
+      font-size: 0.875rem; /* Police plus petite */
+  }
+
+  .pagination.pagination-sm .px-3 {
+      padding-left: var(--spacing-3);
+      padding-right: var(--spacing-3);
+  }
+
+  .sort-controls {
+      display: flex;
+      flex-direction: row; /* Aligne les sélecteurs verticalement */
+      gap: 0.5rem; /* Ajoute un espace entre eux */
+    }
+
+    /* NOUVEAU: Style pour des contrôles de formulaire plus petits */
+    .form-control.form-control-sm {
+      padding: 0.4rem 0.8rem; /* Réduit le padding pour diminuer la hauteur */
+      font-size: 0.875rem;    /* Réduit la taille de la police */
+      min-width: 180px;       /* Définit une largeur minimale */
+    }
 
 .w-4 { width: 1rem; }
 .h-4 { height: 1rem; }
