@@ -2,7 +2,6 @@ import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FileService } from '../../services/file.service';
 import { UploadResponse } from '../../models/file.model';
-import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-file-upload',
@@ -83,7 +82,7 @@ export class FileUploadComponent {
   uploadSuccessful = false;
   showNotification = false;
 
-  constructor(private fileService: FileService, private router: Router) {}
+  constructor(private fileService: FileService) {}
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
@@ -127,17 +126,7 @@ export class FileUploadComponent {
         this.showNotificationMessage(response.message, response.success);
         
         if (response.success) {
-          if (response.needsManualValidation) {
-            // Redirection vers la page de validation
-            this.router.navigate(['/validate', response.fileId]);
-          } else {
-            // Comportement normal : succès, on rafraîchit la liste
-            this.showNotificationMessage(response.message, true);
-            this.uploadSuccess.emit();
-          }
-        } else {
-          // Erreur gérée par le backend
-          this.showNotificationMessage(response.message, false);
+          this.uploadSuccess.emit();
         }
       },
       error: (error: any) => {

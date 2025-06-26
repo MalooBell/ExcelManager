@@ -1,4 +1,3 @@
-// CHEMIN : project/src/components/graph-modal/graph-modal.component.ts
 import { Component, Input, Output, EventEmitter, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -230,22 +229,17 @@ export class GraphModalComponent implements OnInit {
       }
     });
   }
-  
-  /**
-   * MODIFIÉ : Ajout d'une conversion de type explicite `(row.data as any)`
-   * pour indiquer au compilateur que nous accédons à une propriété dynamique,
-   * ce qui résout les erreurs "Element implicitly has an 'any' type".
-   */
+
   private detectNumericColumns() {
       if (this.sampleRows.length === 0) {
           this.numericColumns = [...this.columns];
           return;
       }
       this.numericColumns = this.columns.filter(column => {
-          const firstRowWithValue = this.sampleRows.find(row => (row.data as any)[column] != null && (row.data as any)[column] !== '');
+          const firstRowWithValue = this.sampleRows.find(row => row.data[column] != null && row.data[column] !== '');
           if (!firstRowWithValue) return false;
-          const sampleValue = (firstRowWithValue.data as any)[column];
-          return !isNaN(parseFloat(String(sampleValue).replace(',', '.')));
+          const sampleValue = firstRowWithValue.data[column];
+          return !isNaN(parseFloat(sampleValue.toString().replace(',', '.')));
       });
   }
 

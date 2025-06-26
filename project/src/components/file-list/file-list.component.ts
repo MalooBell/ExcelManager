@@ -37,7 +37,6 @@ import { FileEntity, PageResponse } from '../../models/file.model';
         <p class="text-gray-500">Aucun fichier trouvé. Commencez par télécharger un fichier Excel.</p>
       </div>
 
-      <div class="card">
       <div *ngIf="!loading && files.length > 0" class="overflow-x-auto">
         <table class="table">
           <thead>
@@ -50,12 +49,12 @@ import { FileEntity, PageResponse } from '../../models/file.model';
           </thead>
           <tbody>
             <tr *ngFor="let file of files" class="hover:bg-gray-50">
-              <td class="font-medium">{{ getDisplayName(file.fileName) }}</td>
+              <td class="font-medium">{{ file.fileName }}</td>
               <td>{{ formatDate(file.uploadTimestamp) }}</td>
               <td>
-                <span class="badge badge-info">{{ file.sheetCount }} feuille(s)</span>
+                <span class="badge badge-info">{{ file.sheets.length }} feuille(s)</span>
               </td>
-<td>
+              <td>
                 <div class="flex gap-2">
                   <button (click)="viewFile(file.id)" class="btn btn-primary btn-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,11 +74,9 @@ import { FileEntity, PageResponse } from '../../models/file.model';
                   </button>
                 </div>
               </td>
-              </tr>
+            </tr>
           </tbody>
         </table>
-      </div>
-      
       </div>
 
       <div *ngIf="totalPages > 1" class="pagination">
@@ -195,19 +192,5 @@ export class FileListComponent implements OnInit {
       hour: '2-digit',
       minute: '2-digit'
     });
-  }
-
-  /**
-   * Extracts and returns the display name from a file name that may contain a timestamp prefix.
-   * Example: "1750926025167_song.xlsx - Sheet2.csv" -> "song.xlsx - Sheet2.csv"
-   * @param fileName The full file name including the timestamp.
-   * @returns The file name without the timestamp prefix.
-   */
-  getDisplayName(fileName: string): string {
-    const underscoreIndex = fileName.indexOf('_');
-    if (underscoreIndex !== -1 && underscoreIndex < fileName.length - 1) {
-      return fileName.substring(underscoreIndex + 1);
-    }
-    return fileName; // Return original if no underscore or if it's the last character
   }
 }

@@ -1,7 +1,6 @@
 // CHEMIN : excel-upload-service/src/main/java/excel_upload_service/service/impl/FileServiceImpl.java
 package excel_upload_service.service.impl;
 
-import excel_upload_service.dto.FileDto;
 import excel_upload_service.model.FileEntity;
 import excel_upload_service.model.RowEntity;
 import excel_upload_service.repository.FileEntityRepository;
@@ -33,32 +32,13 @@ public class FileServiceImpl implements FileService {
         this.historyRepository = historyRepository;
     }
 
-   /**
-     * MODIFIÉ : Retourne maintenant une Page<FileDto>
-     */
     @Override
-    public Page<FileDto> getFiles(String searchKeyword, Pageable pageable) {
-        Page<FileEntity> filePage;
+    public Page<FileEntity> getFiles(String searchKeyword, Pageable pageable) {
         if (searchKeyword != null && !searchKeyword.trim().isEmpty()) {
-            filePage = fileRepository.findByFileNameContainingIgnoreCase(searchKeyword, pageable);
+            return fileRepository.findByFileNameContainingIgnoreCase(searchKeyword, pageable);
         } else {
-            filePage = fileRepository.findAll(pageable);
+            return fileRepository.findAll(pageable);
         }
-        // On utilise la méthode .map() de Page pour convertir chaque FileEntity en FileDto.
-        return filePage.map(this::convertToFileDto);
-    }
-    
-    /**
-     * NOUVEAU : Méthode privée pour convertir une entité en DTO.
-     */
-    private FileDto convertToFileDto(FileEntity fileEntity) {
-        FileDto dto = new FileDto();
-        dto.setId(fileEntity.getId());
-        dto.setFileName(fileEntity.getFileName());
-        dto.setUploadTimestamp(fileEntity.getUploadTimestamp());
-        // Récupère le nombre de feuilles sans charger la collection entière.
-        dto.setSheetCount(fileEntity.getSheets() != null ? fileEntity.getSheets().size() : 0);
-        return dto;
     }
     
     @Override

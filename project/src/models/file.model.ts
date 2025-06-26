@@ -4,10 +4,7 @@ export interface FileEntity {
   id: number;
   fileName: string;
   uploadTimestamp: string;
-  sheetCount: number;
-  totalRows: number;
-  processed: boolean;
-  needsHeaderValidation: boolean; 
+  sheets: SheetEntity[];
 }
 
 export interface UploadResponse {
@@ -15,8 +12,6 @@ export interface UploadResponse {
   message: string;
   errors: string[] | null;
   processedRows: number;
-  fileId: number | null;
-  needsManualValidation: boolean;
 }
 
 export interface PageResponse<T> {

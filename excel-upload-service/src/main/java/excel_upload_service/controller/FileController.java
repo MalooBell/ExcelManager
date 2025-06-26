@@ -1,7 +1,6 @@
 // CHEMIN : excel-upload-service/src/main/java/excel_upload_service/controller/FileController.java
 package excel_upload_service.controller;
 
-import excel_upload_service.dto.FileDto;
 import excel_upload_service.model.FileEntity;
 import excel_upload_service.model.SheetEntity; // NOUVEAU
 import excel_upload_service.service.FileService;
@@ -25,7 +24,7 @@ public class FileController {
     }
 
     @GetMapping
-    public Page<FileDto> getFiles(
+    public Page<FileEntity> getFiles(
             @RequestParam(required = false) String search,
             Pageable pageable) {
         return fileService.getFiles(search, pageable);

@@ -1,4 +1,3 @@
-// CHEMIN : project/src/pages/file-processing/file-processing.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -10,17 +9,12 @@ import { RowEntity, ModificationHistory } from '../../models/row.model';
 import { SheetEntity } from '../../models/sheet.model';
 import { RowEditModalComponent } from '../../components/row-edit-modal/row-edit-modal.component';
 import { GraphModalComponent } from '../../components/graph-modal/graph-modal.component';
-// Import de la nouvelle modale de mapping
-import { SheetMappingModalComponent } from '../../components/sheet-mapping-modal/sheet-mapping-modal.component';
-import { SheetPreviewModalComponent } from '../../components/excel-preview/excel-preview.component';
-import { ExcelPreviewService } from '../../services/excel-preview.service';
 
 @Component({
   selector: 'app-file-processing',
   standalone: true,
-  imports: [CommonModule, FormsModule, RowEditModalComponent, GraphModalComponent, SheetMappingModalComponent, SheetPreviewModalComponent],
-  template: `
-<div class="container py-8 page-transition" *ngIf="!loading && file">
+  imports: [CommonModule, FormsModule, RowEditModalComponent, GraphModalComponent],
+  template: `<div class="container py-8 page-transition" *ngIf="!loading && file">
     <div class="flex justify-between items-center mb-6 slide-up">
         <div>
             <button (click)="goBack()" class="btn btn-secondary btn-sm mb-2">
@@ -33,10 +27,6 @@ import { ExcelPreviewService } from '../../services/excel-preview.service';
             <p class="text-gray-600">Téléchargé le {{ formatDate(file.uploadTimestamp) }}</p>
         </div>
         <div class="btn-group" *ngIf="selectedSheet && activeView === 'data'">
-            <button (click)="isShowingMappingModal = true" class="btn btn-secondary">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-              Mapping
-            </button>
             <button (click)="isShowingGraphModal = true" class="btn btn-success">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
@@ -79,26 +69,29 @@ import { ExcelPreviewService } from '../../services/excel-preview.service';
                         [(ngModel)]="searchKeyword" (input)="onSearchInput()">
                 </div>
                 <div class="btn-group flex-wrap">
-                    <div class="sort-controls">
-                      <select class="form-control form-control-sm" [(ngModel)]="pageSize" (ngModelChange)="onSortOrPageSizeChange()">
-                        <option *ngFor="let size of pageSizes" [value]="size">{{ size }} lignes</option>
-                    </select>
-                        <select class="form-control form-control-sm" [(ngModel)]="sortField" (change)="onSortOrPageSizeChange()">
-                            <option value="">Trier par...</option>
-                            <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
-                        </select>
-                        <select class="form-control form-control-sm" [(ngModel)]="sortDirection" (change)="onSortOrPageSizeChange()">
-                            <option value="asc">Croissant</option>
-                            <option value="desc">Décroissant</option>
-                        </select>
-                    </div>
-                    <button (click)="showAddModal()" class="btn btn-success">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                      </svg>
-                      Ajouter
-                    </button>
-                </div>
+    
+    
+    <div class="sort-controls">
+      <select class="form-control form-control-sm" [(ngModel)]="pageSize" (ngModelChange)="onSortOrPageSizeChange()">
+        <option *ngFor="let size of pageSizes" [value]="size">{{ size }} lignes</option>
+    </select>
+        <select class="form-control form-control-sm" [(ngModel)]="sortField" (change)="onSortOrPageSizeChange()">
+            <option value="">Trier par...</option>
+            <option *ngFor="let column of columns" [value]="column">{{ column }}</option>
+        </select>
+        <select class="form-control form-control-sm" [(ngModel)]="sortDirection" (change)="onSortOrPageSizeChange()">
+            <option value="asc">Croissant</option>
+            <option value="desc">Décroissant</option>
+        </select>
+    </div>
+
+    <button (click)="showAddModal()" class="btn btn-success">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      Ajouter
+    </button>
+</div>
             </div>
         </div>
 
@@ -133,10 +126,16 @@ import { ExcelPreviewService } from '../../services/excel-preview.service';
                                 <td>
                                     <div class="btn-group">
                                         <button (click)="showEditModal(row)" class="btn btn-primary btn-sm" title="Modifier">
-                                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                          </svg>
                                         </button>
                                         <button (click)="deleteRow(row.id)" class="btn btn-danger btn-sm" title="Supprimer">
-                                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                          </svg>
                                         </button>
                                     </div>
                                 </td>
@@ -146,7 +145,10 @@ import { ExcelPreviewService } from '../../services/excel-preview.service';
                 </div>
                 <div *ngIf="rows.length === 0" class="text-center py-8">
                     <div class="mb-4">
-                      <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                      <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                      </svg>
                     </div>
                     <p class="text-gray-500">Aucune donnée trouvée pour les critères actuels.</p>
                 </div>
@@ -160,7 +162,7 @@ import { ExcelPreviewService } from '../../services/excel-preview.service';
             </div>
         </div>
     </div>
-    
+
     <div *ngIf="activeView === 'history'" class="slide-up" style="animation-delay: 0.2s;">
         <div class="card">
             <h3 class="card-title mb-4">Dernières modifications pour la feuille "{{ selectedSheet?.sheetName }}"</h3>
@@ -169,7 +171,10 @@ import { ExcelPreviewService } from '../../services/excel-preview.service';
             </div>
             <div *ngIf="!loadingHistory && sheetHistory.length === 0" class="text-center py-8">
                 <div class="mb-4">
-                  <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
                 </div>
                 <p class="text-gray-500">Aucun historique de modification pour cette feuille.</p>
             </div>
@@ -214,13 +219,6 @@ import { ExcelPreviewService } from '../../services/excel-preview.service';
     </div>
 </div>
 
-<app-sheet-preview-modal *ngIf="isShowingPreviewModal && selectedSheet && file"
-    [fileId]="file.id"
-    [sheetIndex]="selectedSheet.sheetIndex"
-    (closeModal)="isShowingPreviewModal = false"
-    (headerSelected)="onHeaderManuallySelected($event)">
-</app-sheet-preview-modal>
-
 <div *ngIf="loading" class="text-center py-16">
     <div class="loading-spinner" style="width: 3rem; height: 3rem;"></div>
     <p class="text-gray-600 mt-4 text-lg">Chargement du fichier et de ses feuilles...</p>
@@ -236,27 +234,63 @@ import { ExcelPreviewService } from '../../services/excel-preview.service';
     [sampleRows]="rows"
     (closeModal)="isShowingGraphModal = false">
 </app-graph-modal>
-
-<app-sheet-mapping-modal *ngIf="isShowingMappingModal && selectedSheet"
-    [sheetId]="selectedSheet.id"
-    [sourceColumns]="columns"
-    (closeModal)="isShowingMappingModal = false">
-</app-sheet-mapping-modal>
-  `,
+`,
   styles: [`
-    /* ... (tous les styles existants sont conservés) ... */
-    .space-x-8 > :not([hidden]) ~ :not([hidden]) { margin-left: 2rem; }
-    .table-container { max-height: 65vh; overflow-y: auto; }
-    .table-container thead th { position: sticky; top: 0; background-color: var(--gray-100); z-index: 10; }
-    .pagination.pagination-sm .pagination-btn { padding: var(--spacing-2) var(--spacing-3); font-size: 0.875rem; }
-    .pagination.pagination-sm .px-3 { padding-left: var(--spacing-3); padding-right: var(--spacing-3); }
-    .sort-controls { display: flex; flex-direction: row; gap: 0.5rem; }
-    .form-control.form-control-sm { padding: 0.4rem 0.8rem; font-size: 0.875rem; min-width: 180px; }
-    .w-4 { width: 1rem; } .h-4 { height: 1rem; } .w-12 { width: 3rem; } .h-12 { height: 3rem; } .mx-auto { margin-left: auto; margin-right: auto; }
-    .overflow-x-auto { overflow-x: auto; } .flex-wrap { flex-wrap: wrap; } .space-y-4 > * + * { margin-top: 1rem; } .grid { display: grid; }
-    .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gap-2 { gap: 0.5rem; } .mt-2 { margin-top: 0.5rem; }
-    .mt-4 { margin-top: 1rem; } .bg-red-50 { background-color: #fef2f2; } .text-xs { font-size: 0.75rem; }
-  `]
+.space-x-8 > :not([hidden]) ~ :not([hidden]) {
+  margin-left: 2rem;
+}
+
+.table-container {
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.table-container thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--gray-100); /* Fond pour cacher le contenu qui défile dessous */
+    z-index: 10;
+  }
+
+  .pagination.pagination-sm .pagination-btn {
+      padding: var(--spacing-2) var(--spacing-3); /* Moins de padding */
+      font-size: 0.875rem; /* Police plus petite */
+  }
+
+  .pagination.pagination-sm .px-3 {
+      padding-left: var(--spacing-3);
+      padding-right: var(--spacing-3);
+  }
+
+  .sort-controls {
+      display: flex;
+      flex-direction: row; /* Aligne les sélecteurs verticalement */
+      gap: 0.5rem; /* Ajoute un espace entre eux */
+    }
+
+    /* NOUVEAU: Style pour des contrôles de formulaire plus petits */
+    .form-control.form-control-sm {
+      padding: 0.4rem 0.8rem; /* Réduit le padding pour diminuer la hauteur */
+      font-size: 0.875rem;    /* Réduit la taille de la police */
+      min-width: 180px;       /* Définit une largeur minimale */
+    }
+
+.w-4 { width: 1rem; }
+.h-4 { height: 1rem; }
+.w-12 { width: 3rem; }
+.h-12 { height: 3rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.overflow-x-auto { overflow-x: auto; }
+.flex-wrap { flex-wrap: wrap; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.grid { display: grid; }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gap-2 { gap: 0.5rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.bg-red-50 { background-color: #fef2f2; }
+.text-xs { font-size: 0.75rem; }
+`]
 })
 export class FileProcessingComponent implements OnInit {
   fileId!: number;
@@ -283,7 +317,7 @@ export class FileProcessingComponent implements OnInit {
   
   isShowingEditModal = false;
   isShowingGraphModal = false;
-  isShowingMappingModal = false; // Ajout du flag pour la nouvelle modale
+  isShowingHistoryModal = false;
   
   selectedRow: RowEntity | null = null;
   isEditMode = false;
@@ -300,14 +334,11 @@ export class FileProcessingComponent implements OnInit {
   private searchTimeout: any;
   Math = Math;
 
-  isShowingPreviewModal = false; 
-
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private fileService: FileService,
-    private rowService: RowService,
-    private previewService: ExcelPreviewService 
+    private rowService: RowService
   ) {}
 
   ngOnInit() {
@@ -319,9 +350,7 @@ export class FileProcessingComponent implements OnInit {
     this.loading = true;
     this.fileService.getFile(this.fileId).subscribe({
       next: (file: FileEntity) => {
-        // NOTE: Le service retourne maintenant une entité sans la liste des feuilles.
-        // C'est normal, nous les chargeons séparément.
-        this.file = file; 
+        this.file = file;
         this.fileService.getSheets(this.fileId).subscribe({
           next: (sheets: SheetEntity[]) => {
             this.sheets = sheets;
@@ -346,7 +375,7 @@ export class FileProcessingComponent implements OnInit {
   }
 
   selectSheet(sheet: SheetEntity) {
-    if (this.selectedSheet?.id === sheet.id && this.activeView === 'data') return;
+    if (this.selectedSheet?.id === sheet.id) return;
     this.activeView = 'data';
     this.selectedSheet = sheet;
     this.columns = sheet.headersJson ? JSON.parse(sheet.headersJson) : [];
@@ -512,27 +541,5 @@ export class FileProcessingComponent implements OnInit {
     } catch {
       return jsonString;
     }
-  }
-
-  /**
-   * NOUVEAU : Gère l'événement `headerSelected` émis par la modale d'aperçu.
-   * @param headerRowIndex Le numéro de la ligne choisie par l'utilisateur.
-   */
-  onHeaderManuallySelected(headerRowIndex: number) {
-    if (!this.selectedSheet) return;
-
-    this.loading = true; // Affiche l'écran de chargement global pendant le retraitement
-    this.previewService.reprocessSheet(this.selectedSheet.id, headerRowIndex).subscribe({
-      next: () => {
-        // Succès ! On recharge complètement les données de la page pour refléter les changements.
-        alert('La feuille a été retraitée avec succès !');
-        this.loadFileAndSheets(); // La manière la plus simple et la plus sûre de tout rafraîchir.
-      },
-      error: (err) => {
-        console.error("Erreur lors du retraitement de la feuille", err);
-        alert("Une erreur est survenue. Veuillez vérifier les logs du serveur.");
-        this.loading = false;
-      }
-    });
   }
 }

@@ -1,53 +1,33 @@
-// CHEMIN : excel-upload-service/src/main/java/excel_upload_service/dto/UploadResponse.java
 package excel_upload_service.dto;
+
 
 import java.util.List;
 
 public class UploadResponse {
     private boolean success;
     private String message;
-    private Long fileId;
-    //private List errors; // Nullable, only present on successful uploads
+    private List<String> errors;
+    private int processedRows;
 
-    public UploadResponse(boolean success, String message) {
+    public UploadResponse() {}
+
+    public UploadResponse(boolean success, String message, List<String> errors, int processedRows) {
         this.success = success;
         this.message = message;
+        this.errors = errors;
+        this.processedRows = processedRows;
     }
 
-    // NEW CONSTRUCTOR TO MATCH USAGE IN EXCELUPLOADSERVICEIMPL
-    public UploadResponse(boolean success, String message, Long fileId) {
-        this.success = success;
-        this.message = message;
-        this.fileId = fileId;
-    }
+    // Getters et Setters
+    public boolean isSuccess() { return success; }
+    public void setSuccess(boolean success) { this.success = success; }
 
-//     public UploadResponse(boolean success, String message, java.util.List<String> errors) {
-//     this.success = success;
-//     this.message = message;
-//     this.errors = errors;
-// }
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
 
-    public boolean isSuccess() {
-        return success;
-    }
+    public List<String> getErrors() { return errors; }
+    public void setErrors(List<String> errors) { this.errors = errors; }
 
-    public void setSuccess(boolean success) {
-        this.success = success;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public Long getFileId() {
-        return fileId;
-    }
-
-    public void setFileId(Long fileId) {
-        this.fileId = fileId;
-    }
+    public int getProcessedRows() { return processedRows; }
+    public void setProcessedRows(int processedRows) { this.processedRows = processedRows; }
 }
