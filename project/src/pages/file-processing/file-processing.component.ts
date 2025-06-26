@@ -375,7 +375,7 @@ export class FileProcessingComponent implements OnInit {
   }
 
   selectSheet(sheet: SheetEntity) {
-    if (this.selectedSheet?.id === sheet.id) return;
+    if (this.selectedSheet?.id === sheet.id && this.activeView === 'data') return;
     this.activeView = 'data';
     this.selectedSheet = sheet;
     this.columns = sheet.headersJson ? JSON.parse(sheet.headersJson) : [];

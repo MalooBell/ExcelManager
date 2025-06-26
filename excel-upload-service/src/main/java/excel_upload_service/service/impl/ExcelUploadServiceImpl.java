@@ -3,6 +3,9 @@ package excel_upload_service.service.impl;
 
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.enums.CellExtraTypeEnum;
+import com.alibaba.excel.event.AnalysisEventListener;
+import com.alibaba.excel.metadata.CellExtra;
 import com.alibaba.excel.metadata.data.ReadCellData;
 import com.alibaba.excel.read.listener.ReadListener;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+
 
 @Service
 public class ExcelUploadServiceImpl implements ExcelUploadService {
@@ -95,6 +99,7 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
                     ExcelDataListener dataListener = new ExcelDataListener(sheetEntity, headers, processedRowsInSheet, errors, maxRows, totalProcessedRowsInFile);
 
                     EasyExcel.read(inputStream, dataListener)
+                            .extraRead(CellExtraTypeEnum.MERGE)
                             .sheet(sheetIndex)
                             .headRowNumber(1)
                             .doRead();
@@ -161,7 +166,7 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
         public void doAfterAllAnalysed(AnalysisContext context) {}
     }
 
-    private class ExcelDataListener implements ReadListener<Map<Integer, String>> {
+    private class ExcelDataListener extends AnalysisEventListener<Map<Integer, String>> {
         private final SheetEntity sheetEntity;
         private final List<String> headers;
         private final AtomicInteger processedRowsInSheet;
@@ -170,6 +175,11 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
         private final int maxRows;
         private final List<RowEntity> batchData = new ArrayList<>();
         private static final int BATCH_SIZE = 1000;
+
+        // Stocker les informations sur les cellules fusionnées
+        private final List<CellExtra> extraMergeInfoList = new ArrayList<>();
+        private Map<Integer, Map<Integer, String>> cachedRows = new HashMap<>();
+
 
         public ExcelDataListener(SheetEntity sheetEntity, List<String> headers, AtomicInteger processedRowsInSheet,
                                  List<String> errors, int maxRows, AtomicInteger totalProcessedRowsInFile) {
@@ -183,6 +193,13 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
 
         @Override
         public void invoke(Map<Integer, String> data, AnalysisContext context) {
+            // Mise en cache de la ligne actuelle pour référence future par les cellules fusionnées
+            int currentRowIndex = context.readRowHolder().getRowIndex();
+            cachedRows.put(currentRowIndex, new HashMap<>(data));
+
+            // Remplir les données des cellules fusionnées
+            fillMergedData(data, context);
+
             try {
                 if (totalProcessedRowsInFile.get() >= maxRows) {
                      context.interrupt();
@@ -207,7 +224,6 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
                 
                 String jsonData = objectMapper.writeValueAsString(rowData);
                 
-                // CORRECTION : On passe l'objet sheetEntity complet, pas l'index.
                 RowEntity entity = RowEntity.builder()
                         .dataJson(jsonData)
                         .sheet(this.sheetEntity)
@@ -222,9 +238,8 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
                 }
 
             } catch (Exception e) {
-                int rowIndex = context.readRowHolder().getRowIndex();
-                logger.error("Error on sheet '{}' row {}: {}", sheetEntity.getSheetName(), rowIndex, e.getMessage());
-                errors.add("Sheet " + sheetEntity.getSheetName() + " Row " + (rowIndex + 1) + ": " + e.getMessage());
+                logger.error("Error on sheet '{}' row {}: {}", sheetEntity.getSheetName(), currentRowIndex, e.getMessage());
+                errors.add("Sheet " + sheetEntity.getSheetName() + " Row " + (currentRowIndex + 1) + ": " + e.getMessage());
             }
         }
 
@@ -233,6 +248,7 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
             if (!batchData.isEmpty()) {
                 saveBatch();
             }
+            cachedRows.clear(); // Vider le cache à la fin
             logger.info("Sheet '{}' processed: {} rows.", sheetEntity.getSheetName(), processedRowsInSheet.get());
         }
 
@@ -243,6 +259,39 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
             } catch (Exception e) {
                 logger.error("Error saving batch: {}", e.getMessage());
                 errors.add("Database save error: " + e.getMessage());
+            }
+        }
+
+        // Capture les informations de fusion
+        @Override
+        public void extra(CellExtra extra, AnalysisContext context) {
+            if (extra.getType() == CellExtraTypeEnum.MERGE) {
+                extraMergeInfoList.add(extra);
+            }
+        }
+
+        // Remplit les données fusionnées
+        private void fillMergedData(Map<Integer, String> data, AnalysisContext context) {
+            Integer currentRowIndex = context.readRowHolder().getRowIndex();
+
+            for (CellExtra extra : extraMergeInfoList) {
+                if (currentRowIndex >= extra.getFirstRowIndex() && currentRowIndex <= extra.getLastRowIndex()) {
+                    
+                    // Retrouver la ligne où la valeur de la cellule fusionnée a été lue
+                    Map<Integer, String> firstRowData = cachedRows.get(extra.getFirstRowIndex());
+                    if (firstRowData == null) continue;
+                    
+                    String firstCellValue = firstRowData.get(extra.getFirstColumnIndex());
+
+                    if (firstCellValue != null) {
+                        for (int i = extra.getFirstColumnIndex(); i <= extra.getLastColumnIndex(); i++) {
+                            // On ne remplit que si la cellule est vide, pour ne pas écraser de données existantes
+                            if (data.get(i) == null || data.get(i).trim().isEmpty()) {
+                                data.put(i, firstCellValue);
+                            }
+                        }
+                    }
+                }
             }
         }
     }
