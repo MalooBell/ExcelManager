@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+@Component
 public class ExcelStructureAnalyzer {
 
     private static final Logger logger = LoggerFactory.getLogger(ExcelStructureAnalyzer.class);

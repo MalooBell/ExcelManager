@@ -28,9 +28,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -58,6 +59,8 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
     @Value("${upload.dir}")
     private String uploadDir;
 
+    private Path uploadPath;
+
     @Value("${excel.upload.max-file-size:10485760}")
     private long maxFileSize;
     @Value("${excel.upload.max-rows:1000700}")
@@ -79,6 +82,19 @@ public class ExcelUploadServiceImpl implements ExcelUploadService {
             Files.createDirectories(this.fileStorageLocation);
         } catch (Exception ex) {
             throw new RuntimeException("Impossible de créer le répertoire de stockage des fichiers.", ex);
+        }
+    }
+
+    @PostConstruct
+    public void init() {
+        try {
+            // Ici, 'uploadDir' n'est plus null
+            this.uploadPath = Paths.get(uploadDir);
+            if (Files.notExists(this.uploadPath)) {
+                Files.createDirectories(this.uploadPath);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Impossible de créer le répertoire de téléchargement : " + uploadDir, e);
         }
     }
 

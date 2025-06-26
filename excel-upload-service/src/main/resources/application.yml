@@ -4,15 +4,13 @@ spring:
     username: root
     password:
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   jpa:
     hibernate:
-      ddl-auto: update  # ou validate / create / none selon l'environnement
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
-
   servlet:
     multipart:
       max-file-size: 100MB
@@ -20,3 +18,7 @@ spring:
 
 server:
   port: 8080
+
+# Définissez la propriété upload.dir au niveau racine de la configuration
+upload:
+  dir: ./uploads
