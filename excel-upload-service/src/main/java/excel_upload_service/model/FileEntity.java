@@ -1,10 +1,8 @@
 // CHEMIN : excel-upload-service/src/main/java/excel_upload_service/model/FileEntity.java
 package excel_upload_service.model;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,26 +17,28 @@ public class FileEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "file_name", nullable = false)
     private String fileName;
 
-    private Integer totalProcessedRows;
-
-    @Column(nullable = false)
+    @Column(name = "upload_timestamp", nullable = false)
     private LocalDateTime uploadTimestamp;
 
-    // La relation est maintenant avec les feuilles, pas directement avec les lignes.
-    @OneToMany(mappedBy = "file", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-    @JsonManagedReference // Permet la sérialisation des feuilles depuis le fichier
+    @Column(name = "total_processed_rows")
+    private int totalProcessedRows;
+
+    @Column(name = "processed") // <--- NEW FIELD
+    private boolean processed;
+
+    @Column(name = "needs_header_validation") // <--- NEW FIELD
+    private boolean needsHeaderValidation;
+
+    @OneToMany(mappedBy = "file", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<SheetEntity> sheets;
 
-    @PrePersist
-    protected void onCreate() {
-        uploadTimestamp = LocalDateTime.now();
+    public FileEntity() {
     }
 
-    // --- Constructeurs, Getters, et Setters ---
-    public FileEntity() {}
+    // Getters and Setters
 
     public Long getId() {
         return id;
@@ -63,8 +63,15 @@ public class FileEntity {
     public void setUploadTimestamp(LocalDateTime uploadTimestamp) {
         this.uploadTimestamp = uploadTimestamp;
     }
-    
-    // Nouveaux getters/setters pour les feuilles
+
+    public int getTotalProcessedRows() {
+        return totalProcessedRows;
+    }
+
+    public void setTotalProcessedRows(int totalProcessedRows) {
+        this.totalProcessedRows = totalProcessedRows;
+    }
+
     public List<SheetEntity> getSheets() {
         return sheets;
     }
@@ -73,14 +80,34 @@ public class FileEntity {
         this.sheets = sheets;
     }
 
-     /**
-     * CORRIGÉ : Méthode utilitaire pour obtenir un InputStream à partir du fichier stocké.
-     * @param storageLocation Le chemin du répertoire de stockage.
-     * @return Un nouvel InputStream pour lire le fichier.
-     * @throws IOException Si le fichier n'est pas trouvé ou ne peut être lu.
-     */
-    public InputStream getStoredFileStream(Path storageLocation) throws IOException {
-        Path filePath = storageLocation.resolve(this.getFileName()).normalize();
-        return Files.newInputStream(filePath);
+    public boolean isProcessed() { // <--- NEW GETTER
+        return processed;
+    }
+
+    public void setProcessed(boolean processed) { // <--- NEW SETTER
+        this.processed = processed;
+    }
+
+    public boolean isNeedsHeaderValidation() { // <--- NEW GETTER
+        return needsHeaderValidation;
+    }
+
+    public void setNeedsHeaderValidation(boolean needsHeaderValidation) { // <--- NEW SETTER
+        this.needsHeaderValidation = needsHeaderValidation;
+    }
+    
+    // NEW: Method to provide an InputStream from the stored file
+    // This is crucial for re-reading the file in various services (like ExcelPreviewService or reprocessing)
+    public InputStream getStoredFileStream(Path fileStorageLocation) {
+        try {
+            // Assuming fileName includes the timestamp prefix, which makes it unique and directly maps to the stored file name
+            Path filePath = fileStorageLocation.resolve(this.fileName);
+            if (!Files.exists(filePath)) {
+                throw new RuntimeException("Stored file not found: " + filePath.toString());
+            }
+            return Files.newInputStream(filePath);
+        } catch (Exception e) {
+            throw new RuntimeException("Error getting stored file stream for " + this.fileName + ": " + e.getMessage(), e);
+        }
     }
 }

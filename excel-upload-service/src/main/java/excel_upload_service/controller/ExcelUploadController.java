@@ -28,7 +28,7 @@ public class ExcelUploadController {
             if (file.isEmpty()) {
                 // CORRIGÉ : Utilisation du nouveau constructeur pour les erreurs.
                 return ResponseEntity.badRequest()
-                        .body(new UploadResponse(false, "Le fichier est vide", Collections.singletonList("Le fichier ne peut pas être vide.")));
+                        .body(new UploadResponse(false, "Le fichier est vide"/*, Collections.singletonList("Le fichier ne peut pas être vide.")*/));
             }
 
             String contentType = file.getContentType();
@@ -37,7 +37,7 @@ public class ExcelUploadController {
             if (!isExcelFile(contentType, fileName)) {
                  // CORRIGÉ : Utilisation du nouveau constructeur pour les erreurs.
                 return ResponseEntity.badRequest()
-                        .body(new UploadResponse(false, "Format de fichier non supporté.", Collections.singletonList("Seuls les fichiers Excel (.xlsx, .xls) sont acceptés.")));
+                        .body(new UploadResponse(false, "Format de fichier non supporté."/* , Collections.singletonList("Seuls les fichiers Excel (.xlsx, .xls) sont acceptés.")*/));
             }
 
             // Traitement du fichier par le service
@@ -49,7 +49,7 @@ public class ExcelUploadController {
         } catch (Exception e) {
             // CORRIGÉ : Utilisation du nouveau constructeur pour les erreurs.
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new UploadResponse(false, "Erreur interne lors du traitement: " + e.getMessage(), Collections.singletonList(e.getMessage())));
+                    .body(new UploadResponse(false, "Erreur interne lors du traitement: " + e.getMessage()/* , Collections.singletonList(e.getMessage())*/));
         }
     }
     

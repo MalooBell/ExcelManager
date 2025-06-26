@@ -5,6 +5,9 @@ export interface FileEntity {
   fileName: string;
   uploadTimestamp: string;
   sheetCount: number;
+  totalRows: number;
+  processed: boolean;
+  needsHeaderValidation: boolean; 
 }
 
 export interface UploadResponse {

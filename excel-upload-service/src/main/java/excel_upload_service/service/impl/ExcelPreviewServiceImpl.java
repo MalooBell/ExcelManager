@@ -1,102 +1,109 @@
+// CHEMIN : excel-upload-service/src/main/java/excel_upload_service/service/impl/ExcelPreviewServiceImpl.java
 package excel_upload_service.service.impl;
 
-
-import com.alibaba.excel.EasyExcel;
-import com.alibaba.excel.context.AnalysisContext;
-import com.alibaba.excel.read.listener.ReadListener;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import excel_upload_service.dto.LayoutAnalysis;
 import excel_upload_service.dto.SheetPreviewDto;
 import excel_upload_service.model.FileEntity;
+import excel_upload_service.model.SheetEntity;
 import excel_upload_service.repository.FileEntityRepository;
 import excel_upload_service.service.ExcelPreviewService;
+import excel_upload_service.utils.ExcelStructureAnalyzer; // Ensure this is imported
+import excel_upload_service.utils.ExcelUtils; // Ensure this is imported (for extractHeaders if used here)
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile; // Vous aurez besoin de trouver un moyen de récupérer le fichier. Pour l'instant, nous allons supposer qu'il est accessible.
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ExcelPreviewServiceImpl implements ExcelPreviewService {
 
-    // NOTE : Pour cette fonctionnalité, nous avons besoin d'accéder au fichier physique.
-    // Nous allons supposer pour l'instant qu'ils sont stockés dans un répertoire connu.
-    // Une solution plus robuste utiliserait un service de stockage (S3, etc.).
-    private final Path fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
+    private static final Logger logger = LoggerFactory.getLogger(ExcelPreviewServiceImpl.class);
 
     private final FileEntityRepository fileRepository;
+    private final ObjectMapper objectMapper;
+    private final ExcelStructureAnalyzer excelStructureAnalyzer; // Inject the analyzer
 
-    public ExcelPreviewServiceImpl(FileEntityRepository fileRepository) {
+    @Value("${upload.dir}")
+    private String uploadDir; // To access stored files
+
+    public ExcelPreviewServiceImpl(FileEntityRepository fileRepository, ObjectMapper objectMapper, ExcelStructureAnalyzer excelStructureAnalyzer) {
         this.fileRepository = fileRepository;
-        try {
-            Files.createDirectories(this.fileStorageLocation);
-        } catch (Exception ex) {
-            throw new RuntimeException("Could not create the directory where the uploaded files will be stored.", ex);
-        }
+        this.objectMapper = objectMapper;
+        this.excelStructureAnalyzer = excelStructureAnalyzer; // Initialize the analyzer
     }
-    
-    // Cette méthode est un placeholder, vous devrez l'adapter à votre logique de stockage de fichiers.
-    private InputStream getFileInputStream(Long fileId) throws IOException {
-        FileEntity fileEntity = fileRepository.findById(fileId)
-                .orElseThrow(() -> new EntityNotFoundException("File not found with id: " + fileId));
-        Path filePath = this.fileStorageLocation.resolve(fileEntity.getFileName()).normalize();
-        return new FileInputStream(filePath.toFile());
-    }
-
 
     @Override
     public SheetPreviewDto getSheetPreview(Long fileId, int sheetIndex, int rowLimit) throws IOException {
-        PreviewListener listener = new PreviewListener(rowLimit);
-        try (InputStream inputStream = getFileInputStream(fileId)) {
-             try {
-                EasyExcel.read(inputStream, listener).sheet(sheetIndex).headRowNumber(0).doRead();
-            } catch (Exception e) {
-                if (e.getMessage() != null && e.getMessage().contains("interrupt")) {
-                    // C'est normal, le listener interrompt la lecture.
-                } else {
-                    throw e;
+        FileEntity fileEntity = fileRepository.findById(fileId)
+                .orElseThrow(() -> new EntityNotFoundException("File not found with ID: " + fileId));
+
+        Path filePath = Paths.get(uploadDir).resolve(fileEntity.getFileName());
+        if (!Files.exists(filePath)) {
+            throw new IOException("File not found on disk: " + filePath.toString());
+        }
+
+        try (InputStream inputStream = Files.newInputStream(filePath)) {
+            SheetEntity sheetEntity = fileEntity.getSheets().stream()
+                .filter(s -> s.getSheetIndex() == sheetIndex)
+                .findFirst()
+                .orElse(null);
+
+            // Determine effective header row index for reading data based on stored header or default to 0
+            int effectiveHeaderRowIndex = (sheetEntity != null && sheetEntity.getHeaderRowIndex() != -1)
+                                        ? sheetEntity.getHeaderRowIndex()
+                                        : 0; // Default to 0 if no header found or for general preview
+
+            List<Map<String, String>> previewDataMaps;
+            try (InputStream dataReadingStream = Files.newInputStream(filePath)) { // Fresh stream for data reading
+                previewDataMaps = ExcelUtils.readExcelSheet(dataReadingStream, sheetIndex, effectiveHeaderRowIndex);
+            }
+
+            List<String> headers;
+            if (sheetEntity != null && sheetEntity.getHeadersJson() != null && !sheetEntity.getHeadersJson().isEmpty()) {
+                headers = objectMapper.readValue(sheetEntity.getHeadersJson(), List.class);
+            } else {
+                try (InputStream headerExtractionStream = Files.newInputStream(filePath)) {
+                    headers = ExcelUtils.extractHeadersFromSpecificRow(headerExtractionStream, sheetIndex, effectiveHeaderRowIndex);
                 }
             }
-        }
-        return new SheetPreviewDto(listener.getRows());
-    }
 
-    private static class PreviewListener implements ReadListener<Map<Integer, String>> {
-        private final int rowLimit;
-        private final List<List<String>> rows = new ArrayList<>();
+            // --- START MODIFICATION FOR SheetPreviewDto constructor ---
+            // Convert List<Map<String, String>> to List<List<String>>
+            List<List<String>> previewDataLists = previewDataMaps.stream()
+                .limit(rowLimit)
+                .map(rowMap -> {
+                    List<String> rowAsList = new ArrayList<>();
+                    // Ensure the order of values in the list matches the order of headers
+                    // Fill with null if a header column is missing from the rowMap
+                    for (String header : headers) {
+                        rowAsList.add(rowMap.getOrDefault(header, null));
+                    }
+                    return rowAsList;
+                })
+                .collect(Collectors.toList());
 
-        public PreviewListener(int rowLimit) {
-            this.rowLimit = rowLimit;
-        }
-
-        @Override
-        public void invoke(Map<Integer, String> data, AnalysisContext context) {
-            List<String> rowData = new ArrayList<>();
-            // S'assurer qu'on a bien toutes les colonnes, même les vides, jusqu'à la dernière cellule non-nulle
-            int maxCol = data.keySet().stream().max(Integer::compare).orElse(-1);
-            for (int i = 0; i <= maxCol; i++) {
-                rowData.add(data.getOrDefault(i, ""));
-            }
-            rows.add(rowData);
-            if (rows.size() >= rowLimit) {
-                context.interrupt();
-            }
-        }
-
-        @Override
-        public void doAfterAllAnalysed(AnalysisContext context) {}
-
-        public List<List<String>> getRows() {
-            return rows;
+            // --- MODIFIED LINE: Remove 'headers' from the constructor call ---
+            return new SheetPreviewDto(previewDataLists); // <--- THIS IS THE ONLY CHANGE
+            // --- END MODIFICATION ---
         }
     }
 
-    
+    @Override
+    public LayoutAnalysis analyzeSheetLayout(InputStream inputStream, int sheetIndex) throws IOException {
+        // This method directly calls the ExcelStructureAnalyzer
+        return excelStructureAnalyzer.analyze(inputStream, sheetIndex);
+    }
 }

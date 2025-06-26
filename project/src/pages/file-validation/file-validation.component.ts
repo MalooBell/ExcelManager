@@ -1,4 +1,3 @@
-// CHEMIN : project/src/pages/file-validation/file-validation.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,6 +6,7 @@ import { SheetEntity } from '../../models/sheet.model';
 import { FileService } from '../../services/file.service';
 import { ExcelPreviewService } from '../../services/excel-preview.service';
 import { SheetPreviewModalComponent } from '../../components/excel-preview/excel-preview.component';
+
 @Component({
   selector: 'app-file-validation',
   standalone: true,
@@ -81,8 +81,18 @@ export class FileValidationComponent implements OnInit {
       this.file = file;
       this.fileService.getSheets(this.fileId).subscribe(sheets => {
         this.sheets = sheets;
-        // On suppose qu'aucune feuille n'est validée au début
         this.loading = false;
+        
+        // --- NEW LOGIC FOR AUTOMATIC MODAL OPENING ---
+        // If the file requires header validation and not all sheets are yet validated,
+        // open the modal for the first unvalidated sheet.
+        if (this.file?.needsHeaderValidation && !this.allSheetsValidated()) {
+          const firstUnvalidatedSheet = this.sheets.find(sheet => !this.validatedSheets.has(sheet.id));
+          if (firstUnvalidatedSheet) {
+            this.openPreview(firstUnvalidatedSheet);
+          }
+        }
+        // --- END NEW LOGIC ---
       });
     });
   }
@@ -96,23 +106,48 @@ export class FileValidationComponent implements OnInit {
     const sheetId = this.sheetToPreview.id;
     this.sheetToPreview = null; // Ferme la modale
 
+    // Important: Re-fetch the file and sheets to ensure the latest validation status is reflected
+    // and to potentially update the 'needsHeaderValidation' flag from the backend after a sheet is processed.
     this.previewService.reprocessSheet(sheetId, headerRowIndex).subscribe({
       next: () => {
         this.validatedSheets.add(sheetId);
-        alert(`L'en-tête pour la feuille ${this.sheets.find(s => s.id === sheetId)?.sheetName} a été validé !`);
+        // Display a more subtle message or integrate into UI, avoiding `alert()`
+        console.log(`L'en-tête pour la feuille ${this.sheets.find(s => s.id === sheetId)?.sheetName} a été validé !`);
+        // Check if there are more sheets to validate and open the next modal if so
+        this.checkForNextUnvalidatedSheet();
       },
       error: err => {
-        alert("Une erreur est survenue lors du retraitement. Veuillez réessayer.");
+        // Display a more subtle message or integrate into UI, avoiding `alert()`
+        console.error("Une erreur est survenue lors du retraitement. Veuillez réessayer.", err);
       }
     });
   }
 
   allSheetsValidated(): boolean {
-    return this.sheets.length === this.validatedSheets.size;
+    // Check if the total number of sheets matches the number of validated sheets
+    // And that there's at least one sheet in the file.
+    return this.sheets.length > 0 && this.sheets.length === this.validatedSheets.size;
   }
 
+  // --- NEW METHOD FOR SEQUENTIAL MODAL OPENING ---
+  checkForNextUnvalidatedSheet(): void {
+    if (this.allSheetsValidated()) {
+      // If all sheets are validated, you might want to automatically finish validation
+      // or simply leave the "Terminer et Traiter le Fichier" button enabled.
+      // For now, we'll let the user click the button.
+    } else {
+      const nextUnvalidatedSheet = this.sheets.find(sheet => !this.validatedSheets.has(sheet.id));
+      if (nextUnvalidatedSheet) {
+        this.openPreview(nextUnvalidatedSheet);
+      }
+    }
+  }
+  // --- END NEW METHOD ---
+
   finishValidation() {
-    alert("Validation terminée ! Vous allez être redirigé.");
+    // IMPORTANT: Avoid using alert() in production applications, especially in IFrames.
+    // Use a custom modal or toast notification system for better user experience.
+    console.log("Validation terminée ! Vous allez être redirigé."); // Log instead of alert
     this.router.navigate(['/file', this.fileId]);
   }
 }

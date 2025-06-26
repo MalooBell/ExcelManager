@@ -50,7 +50,7 @@ import { FileEntity, PageResponse } from '../../models/file.model';
           </thead>
           <tbody>
             <tr *ngFor="let file of files" class="hover:bg-gray-50">
-              <td class="font-medium">{{ file.fileName }}</td>
+              <td class="font-medium">{{ getDisplayName(file.fileName) }}</td>
               <td>{{ formatDate(file.uploadTimestamp) }}</td>
               <td>
                 <span class="badge badge-info">{{ file.sheetCount }} feuille(s)</span>
@@ -195,5 +195,19 @@ export class FileListComponent implements OnInit {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  /**
+   * Extracts and returns the display name from a file name that may contain a timestamp prefix.
+   * Example: "1750926025167_song.xlsx - Sheet2.csv" -> "song.xlsx - Sheet2.csv"
+   * @param fileName The full file name including the timestamp.
+   * @returns The file name without the timestamp prefix.
+   */
+  getDisplayName(fileName: string): string {
+    const underscoreIndex = fileName.indexOf('_');
+    if (underscoreIndex !== -1 && underscoreIndex < fileName.length - 1) {
+      return fileName.substring(underscoreIndex + 1);
+    }
+    return fileName; // Return original if no underscore or if it's the last character
   }
 }

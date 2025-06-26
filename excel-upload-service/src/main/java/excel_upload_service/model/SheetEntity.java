@@ -1,51 +1,58 @@
 // CHEMIN : excel-upload-service/src/main/java/excel_upload_service/model/SheetEntity.java
 package excel_upload_service.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import java.io.Serializable;
 import java.util.List;
 
 @Entity
 @Table(name = "sheets")
-public class SheetEntity implements Serializable {
+public class SheetEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String sheetName;
-
-    @Column(nullable = false)
-    private int sheetIndex;
-
-    @Lob
-    @Column(columnDefinition = "LONGTEXT", nullable = false)
-    private String headersJson;
-
-    @Column(nullable = false)
-    private long totalRows = 0;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "file_id", nullable = false)
-    @JsonBackReference
     private FileEntity file;
 
-    @OneToMany(mappedBy = "sheet", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @Column(name = "sheet_name", nullable = false)
+    private String sheetName;
+
+    @Column(name = "sheet_index", nullable = false)
+    private int sheetIndex;
+
+    @Column(name = "total_rows")
+    private int totalRows;
+
+    @Column(name = "headers_json", columnDefinition = "TEXT")
+    private String headersJson;
+
+    @Column(name = "header_row_index") // <--- NEW FIELD
+    private int headerRowIndex;
+
+    @OneToMany(mappedBy = "sheet", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<RowEntity> rows;
 
-    // --- Constructeurs ---
     public SheetEntity() {
     }
 
-    // --- Getters et Setters ---
+    // Getters and Setters
+
     public Long getId() {
         return id;
     }
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public FileEntity getFile() {
+        return file;
+    }
+
+    public void setFile(FileEntity file) {
+        this.file = file;
     }
 
     public String getSheetName() {
@@ -64,6 +71,14 @@ public class SheetEntity implements Serializable {
         this.sheetIndex = sheetIndex;
     }
 
+    public int getTotalRows() {
+        return totalRows;
+    }
+
+    public void setTotalRows(int totalRows) {
+        this.totalRows = totalRows;
+    }
+
     public String getHeadersJson() {
         return headersJson;
     }
@@ -72,20 +87,12 @@ public class SheetEntity implements Serializable {
         this.headersJson = headersJson;
     }
 
-    public long getTotalRows() {
-        return totalRows;
+    public int getHeaderRowIndex() { // <--- NEW GETTER
+        return headerRowIndex;
     }
 
-    public void setTotalRows(long totalRows) {
-        this.totalRows = totalRows;
-    }
-
-    public FileEntity getFile() {
-        return file;
-    }
-
-    public void setFile(FileEntity file) {
-        this.file = file;
+    public void setHeaderRowIndex(int headerRowIndex) { // <--- NEW SETTER
+        this.headerRowIndex = headerRowIndex;
     }
 
     public List<RowEntity> getRows() {
