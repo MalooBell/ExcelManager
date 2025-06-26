@@ -8,6 +8,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor; // NOUVEAU
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,11 +16,17 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * MODIFIÉ : Le repository implémente maintenant JpaSpecificationExecutor.
+ * DESCRIPTION : Cela nous permettra de construire des requêtes dynamiques et complexes
+ * de manière plus sûre et plus propre que la concaténation de chaînes SQL.
+ */
 @Repository
-public interface RowEntityRepository extends JpaRepository<RowEntity, Long> {
+public interface RowEntityRepository extends JpaRepository<RowEntity, Long>, JpaSpecificationExecutor<RowEntity> {
 
-    // CORRECTION : Nouvelle méthode pour trouver les lignes via l'ID du fichier parent.
-    // On utilise une requête explicite car Spring ne peut pas deviner le chemin "sheet.file.id".
+    // La méthode `searchBySheetIdAndKeyword` est maintenant gérée par la Spécification JPA,
+    // nous n'avons plus besoin d'une requête @Query ici pour cette recherche spécifique.
+
     @Query("SELECT r FROM RowEntity r WHERE r.sheet.file.id = :fileId")
     List<RowEntity> findBySheetFileId(@Param("fileId") Long fileId);
 
@@ -33,22 +40,7 @@ public interface RowEntityRepository extends JpaRepository<RowEntity, Long> {
     @Query("DELETE FROM RowEntity r WHERE r.sheet.file.id = :fileId")
     void deleteByFileId(@Param("fileId") Long fileId);
 
-    @Query("SELECT r FROM RowEntity r WHERE r.sheet.id = :sheetId AND " +
-           "(:keyword IS NULL OR r.dataJson LIKE %:keyword%)")
-    Page<RowEntity> searchBySheetIdAndKeyword(
-            @Param("sheetId") Long sheetId,
-            @Param("keyword") String keyword,
-            Pageable pageable);
-            
-    @Query("SELECT r FROM RowEntity r JOIN r.sheet s JOIN s.file f WHERE " +
-           "(:fileName IS NULL OR f.fileName LIKE %:fileName%) AND " +
-           "(:keyword IS NULL OR r.dataJson LIKE %:keyword%)")
-    Page<RowEntity> searchWithFileAndKeyword(
-            @Param("fileName") String fileName,
-            @Param("keyword") String keyword,
-            Pageable pageable);
-    
-    // ... Les requêtes de graphiques restent les mêmes que dans la version précédente ...
+    // Les requêtes pour les graphiques restent inchangées.
     @Query(value = "SELECT " +
                    "JSON_UNQUOTE(JSON_EXTRACT(r.data_json, :jsonPath)) as category, " +
                    "COUNT(*) as count " +

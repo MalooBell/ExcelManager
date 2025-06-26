@@ -37,6 +37,7 @@ import { FileEntity, PageResponse } from '../../models/file.model';
         <p class="text-gray-500">Aucun fichier trouvé. Commencez par télécharger un fichier Excel.</p>
       </div>
 
+      <div class="card">
       <div *ngIf="!loading && files.length > 0" class="overflow-x-auto">
         <table class="table">
           <thead>
@@ -52,9 +53,9 @@ import { FileEntity, PageResponse } from '../../models/file.model';
               <td class="font-medium">{{ file.fileName }}</td>
               <td>{{ formatDate(file.uploadTimestamp) }}</td>
               <td>
-                <span class="badge badge-info">{{ file.sheets.length }} feuille(s)</span>
+                <span class="badge badge-info">{{ file.sheetCount }} feuille(s)</span>
               </td>
-              <td>
+<td>
                 <div class="flex gap-2">
                   <button (click)="viewFile(file.id)" class="btn btn-primary btn-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,9 +75,11 @@ import { FileEntity, PageResponse } from '../../models/file.model';
                   </button>
                 </div>
               </td>
-            </tr>
+              </tr>
           </tbody>
         </table>
+      </div>
+      
       </div>
 
       <div *ngIf="totalPages > 1" class="pagination">

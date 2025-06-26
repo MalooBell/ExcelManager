@@ -1,3 +1,4 @@
+// CHEMIN : project/src/components/row-edit-modal/row-edit-modal.component.ts
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,24 +20,13 @@ import { RowEntity } from '../../models/row.model';
 
         <div class="modal-body">
           <form (ngSubmit)="save()" #form="ngForm">
-            <div class="form-group">
-              <label class="form-label">Index de la feuille</label>
-              <input
-                type="number"
-                class="form-control"
-                [(ngModel)]="editableRow.sheetIndex"
-                name="sheetIndex"
-                required
-                min="0">
-            </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div *ngFor="let column of columns; trackBy: trackByColumn" class="form-group">
                 <label class="form-label">{{ column }}</label>
                 <input
                   type="text"
                   class="form-control"
-                  [(ngModel)]="editableRow.data[column]"
+                  [(ngModel)]="editableRow.data![column]"
                   [name]="column"
                   placeholder="Entrez une valeur">
               </div>
@@ -83,11 +73,11 @@ export class RowEditModalComponent implements OnInit {
   @Input() columns: string[] = [];
   @Input() isEditMode = false;
   @Output() closeModal = new EventEmitter<void>();
-  @Output() saveRow = new EventEmitter<RowEntity>();
+  @Output() saveRow = new EventEmitter<Partial<RowEntity>>(); // MODIFIÉ pour accepter Partial<RowEntity>
 
-  editableRow: RowEntity = {
-    id: 0,
-    sheetIndex: 0,
+  // MODIFIÉ : Définition de editableRow sans `sheetIndex`
+  editableRow: Partial<RowEntity> = {
+    id: undefined,
     data: {}
   };
 
@@ -95,19 +85,21 @@ export class RowEditModalComponent implements OnInit {
 
   ngOnInit() {
     if (this.row) {
+      // MODIFIÉ : Initialisation sans `sheetIndex`
       this.editableRow = {
         id: this.row.id,
-        sheetIndex: this.row.sheetIndex,
         data: { ...this.row.data }
       };
     } else {
+      // MODIFIÉ : Initialisation sans `sheetIndex`
       this.editableRow = {
-        id: 0,
-        sheetIndex: 0,
+        id: undefined,
         data: {}
       };
       this.columns.forEach(column => {
-        this.editableRow.data[column] = '';
+        if (this.editableRow.data) {
+          this.editableRow.data[column] = '';
+        }
       });
     }
   }
@@ -126,13 +118,13 @@ export class RowEditModalComponent implements OnInit {
     if (!this.isFormValid()) {
       return;
     }
-
     this.saving = true;
     this.saveRow.emit(this.editableRow);
   }
 
+  // MODIFIÉ : La validation ne se base plus sur `sheetIndex`
   isFormValid(): boolean {
-    return this.editableRow.sheetIndex >= 0;
+    return true; // Ou toute autre validation que vous jugerez nécessaire
   }
 
   trackByColumn(index: number, column: string): string {

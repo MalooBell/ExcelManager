@@ -3,6 +3,11 @@ package excel_upload_service.model;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -16,6 +21,8 @@ public class FileEntity {
 
     @Column(nullable = false, unique = true)
     private String fileName;
+
+    private Integer totalProcessedRows;
 
     @Column(nullable = false)
     private LocalDateTime uploadTimestamp;
@@ -64,5 +71,16 @@ public class FileEntity {
 
     public void setSheets(List<SheetEntity> sheets) {
         this.sheets = sheets;
+    }
+
+     /**
+     * CORRIGÉ : Méthode utilitaire pour obtenir un InputStream à partir du fichier stocké.
+     * @param storageLocation Le chemin du répertoire de stockage.
+     * @return Un nouvel InputStream pour lire le fichier.
+     * @throws IOException Si le fichier n'est pas trouvé ou ne peut être lu.
+     */
+    public InputStream getStoredFileStream(Path storageLocation) throws IOException {
+        Path filePath = storageLocation.resolve(this.getFileName()).normalize();
+        return Files.newInputStream(filePath);
     }
 }

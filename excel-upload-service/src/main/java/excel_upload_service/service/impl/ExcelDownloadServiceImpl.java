@@ -11,10 +11,11 @@ import excel_upload_service.repository.RowEntityRepository;
 import excel_upload_service.repository.SheetEntityRepository;
 import excel_upload_service.service.ExcelDownloadService;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -28,41 +29,56 @@ import java.util.Map;
 public class ExcelDownloadServiceImpl implements ExcelDownloadService {
 
     private final RowEntityRepository rowRepository;
-    private final SheetEntityRepository sheetRepository; // NOUVEAU
+    private final SheetEntityRepository sheetRepository;
     private final ObjectMapper objectMapper;
 
     public ExcelDownloadServiceImpl(RowEntityRepository rowRepository, SheetEntityRepository sheetRepository, ObjectMapper objectMapper) {
         this.rowRepository = rowRepository;
-        this.sheetRepository = sheetRepository; // NOUVEAU
+        this.sheetRepository = sheetRepository;
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * MODIFICATION MAJEURE : La méthode utilise maintenant une Spécification JPA.
+     * DESCRIPTION : Pour rester cohérent avec les modifications de l'Étape 3.2,
+     * cette méthode n'appelle plus une méthode de repository qui n'existe plus.
+     * Elle construit une 'Specification' pour filtrer les données à télécharger,
+     * garantissant que les données téléchargées correspondent exactement à celles affichées.
+     */
     @Override
     public void downloadSheetData(Long sheetId, String keyword, HttpServletResponse response) throws IOException {
         // 1. Récupérer l'entité feuille pour obtenir le nom et les en-têtes
         SheetEntity sheet = sheetRepository.findById(sheetId)
                 .orElseThrow(() -> new EntityNotFoundException("Sheet not found with ID: " + sheetId));
         
-        // 2. Récupérer toutes les lignes correspondantes pour cette feuille
-        Pageable pageable = PageRequest.of(0, Integer.MAX_VALUE); // Récupère tout
-        List<RowEntity> results = rowRepository.searchBySheetIdAndKeyword(sheetId, keyword, pageable).getContent();
+        // 2. Créer une "Spécification" pour filtrer les résultats
+        Specification<RowEntity> spec = (root, query, criteriaBuilder) -> {
+            Predicate predicate = criteriaBuilder.equal(root.get("sheet").get("id"), sheetId);
+            if (StringUtils.hasText(keyword)) {
+                predicate = criteriaBuilder.and(predicate, criteriaBuilder.like(root.get("dataJson"), "%" + keyword + "%"));
+            }
+            return predicate;
+        };
+
+        // 3. Récupérer TOUTES les lignes correspondantes pour cette feuille (pas de pagination)
+        List<RowEntity> results = rowRepository.findAll(spec);
 
         if (results.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
             return;
         }
 
-        // 3. Préparer la réponse HTTP
+        // 4. Préparer la réponse HTTP
         String fileName = URLEncoder.encode(sheet.getSheetName() + ".xlsx", StandardCharsets.UTF_8);
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
 
-        // 4. Extraire les en-têtes depuis l'entité feuille
+        // 5. Extraire les en-têtes depuis l'entité feuille
         List<String> headers = objectMapper.readValue(sheet.getHeadersJson(), new TypeReference<>() {});
         List<List<String>> excelHeaders = new ArrayList<>();
         headers.forEach(header -> excelHeaders.add(List.of(header)));
 
-        // 5. Préparer les données pour l'écriture
+        // 6. Préparer les données pour l'écriture
         List<List<Object>> dataToWrite = new ArrayList<>();
         for (RowEntity entity : results) {
             Map<String, Object> rowData = objectMapper.readValue(entity.getDataJson(), new TypeReference<LinkedHashMap<String, Object>>() {});
@@ -73,7 +89,7 @@ public class ExcelDownloadServiceImpl implements ExcelDownloadService {
             dataToWrite.add(rowValues);
         }
 
-        // 6. Écrire les données dans le fichier Excel
+        // 7. Écrire les données dans le fichier Excel
         EasyExcel.write(response.getOutputStream())
                 .head(excelHeaders)
                 .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())

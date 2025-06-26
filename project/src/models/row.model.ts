@@ -1,8 +1,15 @@
 export interface RowEntity {
   id: number;
-  sheetIndex: number;
-  data: { [key: string]: any };
-  sheetName?: string; // Ajout pour identifier par sheetname
+  // MODIFIÉ : La propriété `sheetIndex` a été supprimée car elle n'appartient plus à la ligne.
+  // Elle est maintenant une propriété de l'entité Sheet.
+
+  /**
+   * MODIFIÉ : Utilisation de `Record<string, any>` pour définir explicitement un dictionnaire
+   * avec des clés de type string et des valeurs de n'importe quel type.
+   * Cela résout les erreurs d'inférence de type et indique clairement notre intention au compilateur.
+   */
+  data: Record<string, any>;
+  sheetName?: string;
 }
 
 export interface ModificationHistory {
