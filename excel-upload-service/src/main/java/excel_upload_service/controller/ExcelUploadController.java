@@ -20,35 +20,32 @@ public class ExcelUploadController {
 
     @PostMapping("/upload")
     public ResponseEntity<UploadResponse> uploadExcel(@RequestParam("file") MultipartFile file) {
+        // --- Validation de base ---
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new UploadResponse(false, "Le fichier est vide.", null, 0));
+        }
+
+        // On peut conserver une validation de base sur le nom du fichier
+        String filename = file.getOriginalFilename();
+        if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
+             return ResponseEntity.badRequest()
+                    .body(new UploadResponse(false, "Format de fichier non supporté. Seuls les fichiers Excel (.xlsx, .xls) sont acceptés.", null, 0));
+        }
+
+        // --- Délégation du traitement ---
         try {
-            // Validation du fichier
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest()
-                        .body(new UploadResponse(false, "Le fichier est vide", null, 0));
-            }
-
-            String contentType = file.getContentType();
-            if (!isExcelFile(contentType)) {
-                return ResponseEntity.badRequest()
-                        .body(new UploadResponse(false, "Format de fichier non supporté. Seuls les fichiers Excel (.xlsx, .xls) sont acceptés.", null, 0));
-            }
-
-            // Traitement du fichier
-            UploadResponse response = excelUploadService.uploadAndProcessExcel(file);
-
+            // On appelle la nouvelle méthode de notre service qui orchestre tout
+            UploadResponse response = excelUploadService.processAndSave(file);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
+            // En cas d'erreur (problème de communication avec Python, problème de BDD...), on retourne une erreur 500
+            // Il est important de logger l'erreur côté serveur, ce que notre service fait déjà.
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new UploadResponse(false, "Erreur lors du traitement: " + e.getMessage(), null, 0));
+                    .body(new UploadResponse(false, "Une erreur inattendue est survenue: " + e.getMessage(), null, 0));
         }
     }
 
-    private boolean isExcelFile(String contentType) {
-        return contentType != null && (
-                contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") ||
-                        contentType.equals("application/vnd.ms-excel") ||
-                        contentType.equals("application/octet-stream")
-        );
-    }
+    
 }
