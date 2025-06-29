@@ -1,66 +1,60 @@
-# app/main.py
+# app/main.py (version mise à jour)
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
-import traceback  # Importé pour un meilleur logging des erreurs
+from fastapi.responses import JSONResponse # Import nécessaire
+import traceback
 
 from .models import ExcelProcessingResponse
 from .excel_parser import process_excel_file
 
-# Crée une instance de l'application FastAPI
 app = FastAPI(
     title="Excel Processor API",
     description="Un microservice pour traiter les fichiers Excel complexes.",
     version="1.0.0"
 )
 
+# ... (la route root "/" ne change pas) ...
 @app.get("/", tags=["Root"])
 async def read_root():
-    """
-    Point d'entrée de base pour vérifier que l'API est en cours d'exécution.
-    """
     return {"message": "Bienvenue sur l'API de traitement Excel. Le service est opérationnel."}
 
 
-# Le décorateur @app.post indique que cette fonction gère les requêtes POST.
-# response_model=ExcelProcessingResponse garantit que la réponse sera conforme
-# à notre modèle Pydantic, et l'inclut dans la documentation.
 @app.post("/process-excel",
           response_model=ExcelProcessingResponse,
           tags=["Excel Processing"],
           summary="Traite un fichier Excel et retourne ses données en JSON structuré.")
 async def process_excel(file: UploadFile = File(..., description="Le fichier Excel (.xlsx, .xls) à traiter.")):
-    """
-    Ce point d'API réalise les actions suivantes :
-    - **Reçoit un fichier Excel** téléversé par un client.
-    - **Lit le contenu** du fichier en mémoire.
-    - **Appelle la logique de traitement** pour gérer les en-têtes complexes et les cellules fusionnées.
-    - **Retourne une structure JSON** standardisée contenant les données de chaque feuille.
-
-    En cas d'erreur (fichier corrompu, format non supporté), une erreur HTTP 400 est retournée
-    avec un message explicatif.
-    """
-    # Vérifie l'extension du fichier pour s'assurer qu'il s'agit d'un format Excel supporté.
     if not file.filename.endswith(('.xlsx', '.xls')):
-        raise HTTPException(status_code=400, detail="Format de fichier invalide. Seuls les fichiers .xlsx et .xls sont acceptés.")
+        # On retourne une erreur structurée
+        return JSONResponse(
+            status_code=400,
+            content={"error_code": "INVALID_FILE_FORMAT", "message": "Format de fichier invalide. Seuls les .xlsx et .xls sont acceptés."}
+        )
 
     try:
-        # Lit le contenu complet du fichier téléversé en mémoire sous forme de bytes.
         file_content = await file.read()
-        
-        # Appelle notre fonction de traitement principale avec le contenu et le nom du fichier.
         processed_data = process_excel_file(file_content, file.filename)
         
-        # Retourne les données traitées. FastAPI se chargera de la conversion en JSON.
+        # --- NOUVELLE GESTION D'ERREUR ---
+        # Si le traitement n'a produit aucune feuille, on considère que c'est une erreur métier.
+        if not processed_data.get("sheets"):
+             return JSONResponse(
+                status_code=400,
+                content={"error_code": "NO_DATA_PROCESSED", "message": "Le fichier a été lu mais aucune donnée traitable n'a été trouvée."}
+            )
+            
         return processed_data
 
     except ValueError as ve:
-        # Gère spécifiquement les erreurs fonctionnelles levées par notre parser (ex: fichier illisible).
-        raise HTTPException(status_code=400, detail=str(ve))
+        # Erreur métier levée par notre parser (ex: fichier corrompu)
+        return JSONResponse(
+            status_code=400,
+            content={"error_code": "FILE_CORRUPT", "message": str(ve)}
+        )
     except Exception as e:
-        # Gère toutes les autres erreurs inattendues pour éviter de faire planter le serveur.
-        # Affiche la trace de l'erreur dans la console du serveur pour le débogage.
-        print(f"Une erreur inattendue est survenue : {e}")
+        # Erreur interne inattendue
         traceback.print_exc()
-        # Retourne une réponse d'erreur générique au client.
-        raise HTTPException(status_code=500, detail="Une erreur interne est survenue lors du traitement du fichier.")
+        return JSONResponse(
+            status_code=500,
+            content={"error_code": "INTERNAL_SERVER_ERROR", "message": "Une erreur interne est survenue dans le service de traitement."}
+        )

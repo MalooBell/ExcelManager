@@ -13,6 +13,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 
 @Service
 public class PythonProcessorServiceImpl implements PythonProcessorService {
@@ -35,7 +37,7 @@ public class PythonProcessorServiceImpl implements PythonProcessorService {
 
         // 2. Préparer le corps de la requête (le fichier lui-même)
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        
+
         // On a besoin de convertir MultipartFile en une ressource que RestTemplate peut gérer.
         Resource fileAsResource = file.getResource();
         body.add("file", fileAsResource);
@@ -50,9 +52,15 @@ public class PythonProcessorServiceImpl implements PythonProcessorService {
         // RestTemplate s'occupe de la désérialisation du JSON dans notre objet DTO.
         try {
             return restTemplate.postForObject(serverUrl, requestEntity, ExcelProcessingResponse.class);
-        } catch (Exception e) {
-            // En cas d'échec de la communication, on lève une exception pour que l'appelant puisse la gérer.
-            throw new RuntimeException("Erreur lors de la communication avec le service de traitement Python: " + e.getMessage(), e);
+        } catch (HttpClientErrorException e) {
+            // --- DEBUT DE LA CORRECTION ---
+            // On intercepte spécifiquement les erreurs client (4xx) et on extrait le message.
+            String errorMessage = e.getResponseBodyAsString();
+            throw new RuntimeException("Erreur de la part du service Python : " + errorMessage);
+            // --- FIN DE LA CORRECTION ---
+        } catch (RestClientException e) {
+            // Erreur de communication (service Python indisponible, etc.)
+            throw new RuntimeException("Erreur de communication avec le service de traitement Python: " + e.getMessage(), e);
         }
     }
 }

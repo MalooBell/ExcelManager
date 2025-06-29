@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Service 1: La base de données MySQL
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: unless-stopped
+    environment:
+      # Autorise la connexion root sans mot de passe. La valeur 'yes' est importante.
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+      # Vous pouvez laisser cette variable vide ou la supprimer
+      MYSQL_ROOT_PASSWORD: ''
+    ports:
+      - "3306:3306"
+    volumes:
+      # Ce volume monte le script SQL qui sera exécuté au premier démarrage
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # Ce volume persiste les données de la base de données
+      - mysql_data:/var/lib/mysql
+
+  # Service 2: Le "centre de tri" de messages
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+
+volumes:
+  mysql_data:
